@@ -27,10 +27,10 @@ Each transaction record in this dataset includes transaction amount, date/time, 
 ### Database schema
 
 Our relational schema will include:
-● accounts: account information
-● transactions: transaction records (will be seeded with the dataset)
-● alerts: flagged suspicious transactions
-● case notes: LLM-generated summary and reasoning
+- accounts: account information
+- transactions: transaction records (will be seeded with the dataset)
+- alerts: flagged suspicious transactions
+- case notes: LLM-generated summary and reasoning
 
 ### Fraud detection method
 
@@ -41,11 +41,11 @@ We’re not training a machine learning model for this project. Instead, we use 
 3. The new transaction is classified based on the majority label of the retrieved labels, i.e., if most neighbor transactions are normal, then it’s possibly a normal one too.
 
 Potential fraud indicators include:
-● Transaction speed (number of transactions in recent time windows)
-● Unusual transaction amount compared to average
-● New merchant usage
-● Rapid withdrawals or transfers
-● Abnormal spending time
+- Transaction speed (number of transactions in recent time windows)
+- Unusual transaction amount compared to average
+- New merchant usage
+- Rapid withdrawals or transfers
+- Abnormal spending time
 
 ### LLM component
 
@@ -54,22 +54,22 @@ We’re not using an LLM to predict fraud. Instead, it will be used to generate 
 ### Test cases
 
 We will be testing real-world fraud behaviors:
-● rapid small purchases followed by a large purchase
-● unusual transaction times
-● suspicious merchant channels
-● abnormal spending amounts, etc.
+- rapid small purchases followed by a large purchase
+- unusual transaction times
+- suspicious merchant channels
+- abnormal spending amounts, etc.
 
 ### Evaluation Plan
 
 We will evaluate the system based on the following criteria:
-● How accurate is the classification?
-● How fast does it take to retrieve similar transactions?
-● How useful are the generated summaries?
+- How accurate is the classification?
+- How fast does it take to retrieve similar transactions?
+- How useful are the generated summaries?
 
 We will also do a live demo showing how an analyst reviews a flagged transaction.
 
 ### Future exploration
 
 We’re aiming for a working system that simulates the real-world auditing workflow for fraudulent banking transactions. That said, if we have time, we’ll explore more features such as:
-● Analyst dashboard: case status tracking, filtering, etc.
-● Investigator agent: AI agent that automatically fetches supporting evidence (transaction history, merchant info, similar past cases), drafts notes and recommends actions for analyst review.
+- Analyst dashboard: case status tracking, filtering, etc.
+- Investigator agent: AI agent that automatically fetches supporting evidence (transaction history, merchant info, similar past cases), drafts notes and recommends actions for analyst review.

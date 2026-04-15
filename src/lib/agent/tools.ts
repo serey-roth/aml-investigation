@@ -1,6 +1,6 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { CaseDataLoader } from "./loaders";
+import { CaseDataLoader } from "@/lib/db/loader";
 
 export function createTools(loader: CaseDataLoader) {
   const getTransactionHistory = tool(
@@ -32,17 +32,17 @@ export function createTools(loader: CaseDataLoader) {
     }
   );
 
-  const getMerchantHistory = tool(
-    async ({ account_id, merchant }: { account_id: string; merchant: string }) => {
-      const data = await loader.fetchMerchantHistory(account_id, merchant);
+  const getCounterpartyHistory = tool(
+    async ({ account_id, counterparty_id }: { account_id: string; counterparty_id: string }) => {
+      const data = await loader.fetchCounterpartyHistory(account_id, counterparty_id);
       return JSON.stringify(data);
     },
     {
-      name: "get_merchant_history",
-      description: "Checks whether a merchant has appeared before in an account's transaction history",
+      name: "get_counterparty_history",
+      description: "Checks whether an account has transacted with a given counterparty before and how frequently",
       schema: z.object({
         account_id: z.string().describe("The account ID to check"),
-        merchant: z.string().describe("The merchant name to look up"),
+        counterparty_id: z.string().describe("The counterparty account ID to look up"),
       }),
     }
   );
@@ -61,5 +61,5 @@ export function createTools(loader: CaseDataLoader) {
     }
   );
 
-  return [getTransactionHistory, computeVelocity, getMerchantHistory, findSimilarCases];
+  return [getTransactionHistory, computeVelocity, getCounterpartyHistory, findSimilarCases];
 }

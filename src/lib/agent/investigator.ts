@@ -1,6 +1,6 @@
 import { createAgent, ReactAgent } from "langchain";
 import { InvestigationEvent } from "@/lib/types";
-import { CaseDataLoader } from "./loaders";
+import { CaseDataLoader } from "@/lib/db/loader";
 import { investigatorModel } from "./models";
 import { INVESTIGATOR_PROMPT } from "./prompts";
 import { createTools } from "./tools";

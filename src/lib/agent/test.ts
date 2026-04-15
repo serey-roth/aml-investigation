@@ -1,11 +1,11 @@
 import { Investigator } from "./investigator";
-import { StubLoader } from "./loaders";
+import { SqliteLoader } from "../db/loader";
 
-const alert = "Account ACC-001 made 4 cash deposits in 8 days: $9,800, $9,500, $9,700, $9,600.";
+const alert = "Account 800737690 has made multiple ACH transfers to different accounts over a short period, flagged as potential fan-out pattern.";
 
 console.log("Running investigation...\n");
 
-const investigator = new Investigator(new StubLoader());
+const investigator = new Investigator(new SqliteLoader());
 
 investigator.invoke(alert).then((result) => {
   console.log("Agent recommendation:\n", result);

@@ -14,6 +14,10 @@
 # debug
 npm-debug.log*
 
+# data
+src/data/*.csv
+src/data/*.db
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

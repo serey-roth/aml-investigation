@@ -55,10 +55,12 @@ audit_trail      — immutable log of every agent action and human action per al
 
 ### Tech Stack
 
-- **Language**: Python
-- **Database**: PostgreSQL
-- **Similarity search**: FAISS
-- **LLM**: Ollama (local)
+- **Language**: TypeScript
+- **Framework**: Next.js
+- **Agent framework**: LangChain
+- **Database**: PostgreSQL (planned)
+- **Similarity search**: FAISS (planned)
+- **LLM**: Ollama (local, llama3.2)
 
 ### Detection Method
 

@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
 import { Investigator } from "@/lib/agent/investigator";
-import { StubLoader } from "@/lib/agent/loaders";
+import { SqliteLoader } from "@/lib/db/loader";
 
 export const runtime = "nodejs";
 
-const investigator = new Investigator(new StubLoader());
+const investigator = new Investigator(new SqliteLoader());
 
 export async function POST(req: NextRequest) {
   const { alert } = await req.json();

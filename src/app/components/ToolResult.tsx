@@ -1,12 +1,12 @@
 import {
   TransactionHistoryResult,
   VelocityResult,
-  MerchantHistoryResult,
+  CounterpartyHistoryResult,
   SimilarCasesResult,
-} from "@/lib/agent/loaders";
+} from "@/lib/db/loader";
 import { TransactionTable } from "./TransactionTable";
 import { VelocityCard } from "./VelocityCard";
-import { MerchantCard } from "./MerchantCard";
+import { CounterpartyCard } from "./CounterpartyCard";
 import { SimilarCasesList } from "./SimilarCasesList";
 
 interface Props {
@@ -23,8 +23,8 @@ export function ToolResult({ tool, data }: Props) {
   if (tool === "compute_velocity") {
     return <VelocityCard data={data as unknown as VelocityResult} />;
   }
-  if (tool === "get_merchant_history") {
-    return <MerchantCard data={data as unknown as MerchantHistoryResult} />;
+  if (tool === "get_counterparty_history") {
+    return <CounterpartyCard data={data as unknown as CounterpartyHistoryResult} />;
   }
   if (tool === "find_similar_cases") {
     return <SimilarCasesList data={data as unknown as SimilarCasesResult} />;

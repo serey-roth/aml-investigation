@@ -1,4 +1,4 @@
-import { VelocityResult } from "@/lib/agent/loaders";
+import { VelocityResult } from "@/lib/db/loader";
 
 function fmt(n: number) {
   return "$" + n.toLocaleString();

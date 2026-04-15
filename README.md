@@ -35,9 +35,9 @@ The system has four main components:
 
 ### Dataset
 
-We will use the [USA banking transaction dataset (2023 - 2024)](https://www.kaggle.com/datasets/pradeepkumar2424/usa-banking-transactions-dataset-2023-2024) as our synthetic data.
+We use the [IBM AML Transaction Dataset (HI-Small)](https://www.kaggle.com/datasets/ealtman2019/ibm-transactions-for-anti-money-laundering-aml) as our synthetic data.
 
-Each transaction record includes transaction amount, date/time, transaction type, merchant information, and channel. We will seed a subset of cases with confirmed fraud labels and SAR outcomes to populate the case memory.
+The dataset contains 5 million transactions across 8 laundering typologies (fan-out, fan-in, cycle, scatter-gather, bipartite, stack, random). We filter to accounts involved in labeled laundering patterns plus a sample of clean accounts, resulting in ~3,400 accounts, ~111,000 transactions, and 373 seeded case memory entries stored in SQLite.
 
 ### Database Schema
 
@@ -58,7 +58,7 @@ audit_trail      — immutable log of every agent action and human action per al
 - **Language**: TypeScript
 - **Framework**: Next.js
 - **Agent framework**: LangChain
-- **Database**: PostgreSQL (planned)
+- **Database**: SQLite (via better-sqlite3)
 - **Similarity search**: FAISS (planned)
 - **LLM**: Ollama (local, qwen2.5:3b)
 
@@ -82,7 +82,7 @@ The agent is an LLM that runs when an alert is created. It does not predict frau
 
 - `get_transaction_history(account_id)` — retrieves full account transaction history
 - `compute_velocity(account_id, window)` — computes transaction frequency over a time window
-- `get_merchant_history(account_id, merchant)` — checks if the merchant has appeared before for this account
+- `get_counterparty_history(account_id, counterparty_id)` — checks whether a counterparty has appeared before for this account
 - `find_similar_cases(pattern)` — retrieves the most similar past cases from case memory, with their outcomes
 
 The agent runs a multi-step investigation: it gathers evidence, retrieves precedents from case memory, identifies what factors distinguish this case from similar ones, and produces a final recommendation — SAR or no-file — with documented reasoning and precedent citations.

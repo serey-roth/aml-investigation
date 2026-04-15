@@ -60,7 +60,7 @@ audit_trail      — immutable log of every agent action and human action per al
 - **Agent framework**: LangChain
 - **Database**: PostgreSQL (planned)
 - **Similarity search**: FAISS (planned)
-- **LLM**: Ollama (local, llama3.2)
+- **LLM**: Ollama (local, qwen2.5:3b)
 
 ### Detection Method
 
@@ -83,7 +83,7 @@ The agent is an LLM that runs when an alert is created. It does not predict frau
 - `get_transaction_history(account_id)` — retrieves full account transaction history
 - `compute_velocity(account_id, window)` — computes transaction frequency over a time window
 - `get_merchant_history(account_id, merchant)` — checks if the merchant has appeared before for this account
-- `find_similar_cases(features)` — retrieves the most similar past cases from case memory, with their outcomes
+- `find_similar_cases(pattern)` — retrieves the most similar past cases from case memory, with their outcomes
 
 The agent runs a multi-step investigation: it gathers evidence, retrieves precedents from case memory, identifies what factors distinguish this case from similar ones, and produces a final recommendation — SAR or no-file — with documented reasoning and precedent citations.
 

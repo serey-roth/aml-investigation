@@ -17,12 +17,12 @@ type Step =
   | { type: "error"; message: string };
 
 const DEFAULT_ALERT =
-  "Account ACC-001 made 4 cash deposits in 8 days: $9,800, $9,500, $9,700, $9,600.";
+  "Account 800737690 has made multiple ACH transfers to different accounts over a short period, flagged as potential fan-out pattern.";
 
 const TOOL_LABELS: Record<string, string> = {
   get_transaction_history: "Transaction History",
   compute_velocity: "Velocity Analysis",
-  get_merchant_history: "Merchant History",
+  get_counterparty_history: "Counterparty History",
   find_similar_cases: "Similar Cases",
 };
 

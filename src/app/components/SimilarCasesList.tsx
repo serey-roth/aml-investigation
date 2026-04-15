@@ -1,4 +1,4 @@
-import { SimilarCasesResult } from "@/lib/agent/loaders";
+import { SimilarCasesResult } from "@/lib/db/loader";
 
 export function SimilarCasesList({ data }: { data: SimilarCasesResult }) {
   return (

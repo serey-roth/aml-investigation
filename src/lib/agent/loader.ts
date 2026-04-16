@@ -1,4 +1,9 @@
-import { getDb } from "./client";
+import {
+  getTransactions,
+  getTransactionAmounts,
+  getCounterpartyTransactions,
+} from "@/lib/db/repositories/transaction";
+import { getCasesByTypology, getRandomCases } from "@/lib/db/repositories/case";
 
 export interface Transaction {
   date: string;
@@ -50,34 +55,9 @@ export interface CaseDataLoader {
   findSimilarCases(pattern: string): Promise<SimilarCasesResult>;
 }
 
-interface TxRecord {
-  timestamp: string;
-  from_account: string;
-  to_account: string;
-  amount_paid: number;
-  payment_currency: string;
-  payment_format: string;
-}
-
-interface CaseRecord {
-  id: number;
-  typology: string;
-  description: string;
-  outcome: string;
-  distinguishing_factor: string;
-}
-
 export class SqliteLoader implements CaseDataLoader {
   async fetchTransactionHistory(account_id: string): Promise<TransactionHistoryResult> {
-    const db = getDb();
-    const rows = db.prepare<[string, string]>(`
-      SELECT timestamp, from_account, to_account, amount_paid, payment_currency, payment_format
-      FROM transactions
-      WHERE from_account = ? OR to_account = ?
-      ORDER BY timestamp DESC
-      LIMIT 50
-    `).all(account_id, account_id) as TxRecord[];
-
+    const rows = getTransactions(account_id);
     return {
       account_id,
       transactions: rows.map((r) => ({
@@ -91,13 +71,7 @@ export class SqliteLoader implements CaseDataLoader {
   }
 
   async fetchVelocity(account_id: string, window_hours: number): Promise<VelocityResult> {
-    const db = getDb();
-    const all = db.prepare<[string, string]>(`
-      SELECT timestamp, amount_paid
-      FROM transactions
-      WHERE from_account = ? OR to_account = ?
-      ORDER BY timestamp DESC
-    `).all(account_id, account_id) as { timestamp: string; amount_paid: number }[];
+    const all = getTransactionAmounts(account_id);
 
     if (all.length === 0) {
       return { account_id, window_hours, transaction_count: 0, total_amount: 0, average_amount: 0, account_historical_average: 0 };
@@ -122,14 +96,7 @@ export class SqliteLoader implements CaseDataLoader {
   }
 
   async fetchCounterpartyHistory(account_id: string, counterparty_id: string): Promise<CounterpartyHistoryResult> {
-    const db = getDb();
-    const rows = db.prepare<[string, string, string, string]>(`
-      SELECT timestamp FROM transactions
-      WHERE (from_account = ? AND to_account = ?)
-         OR (from_account = ? AND to_account = ?)
-      ORDER BY timestamp ASC
-    `).all(account_id, counterparty_id, counterparty_id, account_id) as { timestamp: string }[];
-
+    const rows = getCounterpartyTransactions(account_id, counterparty_id);
     return {
       account_id,
       counterparty_id,
@@ -141,7 +108,6 @@ export class SqliteLoader implements CaseDataLoader {
   }
 
   async findSimilarCases(pattern: string): Promise<SimilarCasesResult> {
-    const db = getDb();
     const keywords = pattern.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
 
     const typologyMap: Record<string, string> = {
@@ -155,18 +121,8 @@ export class SqliteLoader implements CaseDataLoader {
     const matched = keywords.map((k) => typologyMap[k]).filter(Boolean);
     const typologyFilter = matched.length > 0 ? matched[0] : null;
 
-    const rows = db.prepare<[string | null, string | null]>(`
-      SELECT id, typology, description, outcome, distinguishing_factor
-      FROM case_memory
-      WHERE (? IS NULL OR typology = ?)
-      ORDER BY RANDOM()
-      LIMIT 3
-    `).all(typologyFilter, typologyFilter) as CaseRecord[];
-
-    const results = rows.length > 0 ? rows : db.prepare(`
-      SELECT id, typology, description, outcome, distinguishing_factor
-      FROM case_memory ORDER BY RANDOM() LIMIT 3
-    `).all() as CaseRecord[];
+    const rows = getCasesByTypology(typologyFilter);
+    const results = rows.length > 0 ? rows : getRandomCases();
 
     return {
       pattern,

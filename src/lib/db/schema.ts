@@ -33,7 +33,17 @@ export function createSchema(db: Database.Database) {
       account_id  TEXT,
       typology    TEXT,
       description TEXT,
-      status      TEXT DEFAULT 'open'
+      status      TEXT DEFAULT 'open',
+      created_at  TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS audit_trail (
+      id        INTEGER PRIMARY KEY AUTOINCREMENT,
+      alert_id  INTEGER REFERENCES alerts(id),
+      actor     TEXT NOT NULL,
+      action    TEXT NOT NULL,
+      detail    TEXT,
+      created_at TEXT DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS case_memory (

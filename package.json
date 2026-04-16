@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed": "rm -f src/data/aml.db && npx tsx src/lib/db/seed.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.1.38",

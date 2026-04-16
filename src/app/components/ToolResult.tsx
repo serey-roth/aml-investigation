@@ -3,7 +3,7 @@ import {
   VelocityResult,
   CounterpartyHistoryResult,
   SimilarCasesResult,
-} from "@/lib/db/loader";
+} from "@/lib/agent/loader";
 import { TransactionTable } from "./TransactionTable";
 import { VelocityCard } from "./VelocityCard";
 import { CounterpartyCard } from "./CounterpartyCard";

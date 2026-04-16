@@ -1,4 +1,4 @@
-import { Transaction } from "@/lib/db/loader";
+import { Transaction } from "@/lib/agent/loader";
 
 function fmt(n: number) {
   return "$" + n.toLocaleString();

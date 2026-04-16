@@ -1,15 +1,23 @@
 import { NextRequest } from "next/server";
 import { Investigator } from "@/lib/agent/investigator";
-import { SqliteLoader } from "@/lib/db/loader";
+import { SqliteLoader } from "@/lib/agent/loader";
+import { getAlert, insertAuditEntry } from "@/lib/db/repositories/alert";
+import { typologyInlineNote } from "@/lib/typologies";
 
 export const runtime = "nodejs";
 
 const investigator = new Investigator(new SqliteLoader());
 
 export async function POST(req: NextRequest) {
-  const { alert } = await req.json();
+  const { alert_id } = await req.json();
 
+  const alert = getAlert(parseInt(alert_id));
+  if (!alert) return Response.json({ error: "Alert not found" }, { status: 404 });
+
+  const typologyNote = typologyInlineNote(alert.typology);
+  const alertText = `Account ${alert.account_id} — Typology: ${alert.typology}\n${typologyNote}\n\n${alert.description}`;
   const encoder = new TextEncoder();
+  let messageBuffer = "";
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -18,7 +26,14 @@ export async function POST(req: NextRequest) {
       };
 
       try {
-        for await (const event of investigator.stream(alert)) {
+        for await (const event of investigator.stream(alertText)) {
+          if (event.type === "tool_result") {
+            insertAuditEntry(alert.id, "agent", "tool_call", JSON.stringify({ tool: event.name, output: event.output }));
+          } else if (event.type === "token") {
+            messageBuffer += event.content;
+          } else if (event.type === "done" && messageBuffer) {
+            insertAuditEntry(alert.id, "agent", "recommendation", messageBuffer);
+          }
           emit(event);
         }
       } catch (err) {

@@ -1,4 +1,4 @@
-import { CounterpartyHistoryResult } from "@/lib/db/loader";
+import { CounterpartyHistoryResult } from "@/lib/agent/loader";
 
 export function CounterpartyCard({ data }: { data: CounterpartyHistoryResult }) {
   return (

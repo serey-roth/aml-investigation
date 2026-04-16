@@ -1,6 +1,6 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { CaseDataLoader } from "@/lib/db/loader";
+import { CaseDataLoader } from "./loader";
 
 export function createTools(loader: CaseDataLoader) {
   const getTransactionHistory = tool(

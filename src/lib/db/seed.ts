@@ -3,12 +3,12 @@ import * as fs from "fs";
 import * as readline from "readline";
 import * as path from "path";
 import { createSchema } from "./schema";
+import { getTypologyDefinition } from "../typologies";
 
 const DATA_DIR = path.join(process.cwd(), "src/data");
 const DB_PATH = path.join(DATA_DIR, "aml.db");
 const CLEAN_ACCOUNT_SAMPLE = 200;
 
-// ---------- Types ----------
 
 interface LaunderingAttempt {
   typology: string;
@@ -36,8 +36,6 @@ interface TxRow {
   payment_format: string;
   is_laundering: number;
 }
-
-// ---------- Parse patterns file ----------
 
 async function parsePatternsFile(): Promise<LaunderingAttempt[]> {
   const attempts: LaunderingAttempt[] = [];
@@ -184,21 +182,11 @@ async function seed() {
   })();
 
   // Seed alerts + case_memory from laundering attempts
-  const DISTINGUISHING_FACTORS: Record<string, string> = {
-    "FAN-OUT": "One account sends funds to many accounts in a short period",
-    "FAN-IN": "Many accounts funnel funds into one account",
-    "CYCLE": "Funds cycle back to the originating account through intermediaries",
-    "GATHER-SCATTER": "Funds are gathered from multiple sources then scattered to multiple destinations",
-    "SCATTER-GATHER": "Funds are scattered then regathered into a single account",
-    "BIPARTITE": "Two groups of accounts transact exclusively with each other",
-    "STACK": "Sequential layering of funds through a chain of accounts",
-    "RANDOM": "No clear structure — irregular transfers across unrelated accounts",
-  };
-
   db.transaction(() => {
     for (const attempt of attempts) {
       const primaryAccount = [...attempt.accounts][0];
       const description = `${attempt.typology} pattern involving ${attempt.accounts.size} accounts and ${attempt.transactionCount} transactions`;
+      const typology = getTypologyDefinition(attempt.typology);
 
       const alertResult = insertAlert.run({
         account_id: primaryAccount,
@@ -212,7 +200,7 @@ async function seed() {
         typology: attempt.typology,
         description,
         outcome: "SAR_FILED",
-        distinguishing_factor: DISTINGUISHING_FACTORS[attempt.typology] ?? "Suspicious transaction pattern detected",
+        distinguishing_factor: typology?.amlSignificance ?? "Suspicious transaction pattern detected",
       });
     }
 
@@ -236,6 +224,22 @@ async function seed() {
         description: c.description,
         outcome: "NO_FILE",
         distinguishing_factor: c.distinguishing_factor,
+      });
+    }
+  })();
+
+  // Seed open alerts — one per typology for the dashboard queue
+  const typologiesSeeded = new Set<string>();
+  db.transaction(() => {
+    for (const attempt of attempts) {
+      if (typologiesSeeded.has(attempt.typology)) continue;
+      typologiesSeeded.add(attempt.typology);
+      const primaryAccount = [...attempt.accounts][0];
+      insertAlert.run({
+        account_id: primaryAccount,
+        typology: attempt.typology,
+        description: `${attempt.typology} pattern detected: ${attempt.accounts.size} accounts involved, ${attempt.transactionCount} transactions flagged`,
+        status: "open",
       });
     }
   })();

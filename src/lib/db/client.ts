@@ -7,7 +7,7 @@ let _db: Database.Database | null = null;
 
 export function getDb(): Database.Database {
   if (!_db) {
-    _db = new Database(DB_PATH, { readonly: true });
+    _db = new Database(DB_PATH);
   }
   return _db;
 }

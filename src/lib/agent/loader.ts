@@ -1,3 +1,6 @@
+import { OllamaEmbeddings } from "@langchain/ollama";
+import { FaissStore } from "@langchain/community/vectorstores/faiss";
+import path from "path";
 import {
   getTransactions,
   getTransactionAmounts,
@@ -108,29 +111,26 @@ export class SqliteLoader implements CaseDataLoader {
   }
 
   async findSimilarCases(pattern: string): Promise<SimilarCasesResult> {
-    const keywords = pattern.toLowerCase().split(/\s+/).filter((w) => w.length > 3);
+    const DATA_DIR = path.join(process.cwd(), "src/data");
+    const INDEX_PATH = path.join(DATA_DIR, "faiss_index");
 
-    const typologyMap: Record<string, string> = {
-      "fan-out": "FAN-OUT", fanout: "FAN-OUT",
-      "fan-in": "FAN-IN", fanin: "FAN-IN",
-      cycle: "CYCLE", circular: "CYCLE",
-      scatter: "SCATTER-GATHER", gather: "GATHER-SCATTER",
-      bipartite: "BIPARTITE", stack: "STACK", random: "RANDOM",
-    };
+    const embeddings = new OllamaEmbeddings({
+      model: "nomic-embed-text",
+    });
 
-    const matched = keywords.map((k) => typologyMap[k]).filter(Boolean);
-    const typologyFilter = matched.length > 0 ? matched[0] : null;
+    // Load the index you just built with the seed script
+    const vectorStore = await FaissStore.load(INDEX_PATH, embeddings);
 
-    const rows = getCasesByTypology(typologyFilter);
-    const results = rows.length > 0 ? rows : getRandomCases();
+    // Search for the top 3 mathematically similar cases
+    const results = await vectorStore.similaritySearch(pattern, 3);
 
     return {
       pattern,
-      similar_cases: results.map((r) => ({
-        case_id: `CASE-${r.id}`,
-        description: r.description,
-        outcome: r.outcome as "SAR_FILED" | "NO_FILE",
-        distinguishing_factor: r.distinguishing_factor,
+      similar_cases: results.map((doc) => ({
+        case_id: `CASE-${doc.metadata.id}`,
+        description: doc.pageContent,
+        outcome: doc.metadata.outcome as "SAR_FILED" | "NO_FILE",
+        distinguishing_factor: doc.pageContent.split("Factors: ")[1] || ""
       })),
     };
   }

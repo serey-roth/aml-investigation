@@ -4,10 +4,16 @@ import * as readline from "readline";
 import * as path from "path";
 import { createSchema } from "./schema";
 import { getTypologyDefinition } from "../typologies";
+import { OllamaEmbeddings } from "@langchain/ollama";
+import { FaissStore } from "@langchain/community/vectorstores/faiss";
+import { Document } from "@langchain/core/documents";
 
 const DATA_DIR = path.join(process.cwd(), "src/data");
 const DB_PATH = path.join(DATA_DIR, "aml.db");
 const CLEAN_ACCOUNT_SAMPLE = 200;
+const embeddings = new OllamaEmbeddings({
+  model: "nomic-embed-text",
+});
 
 
 interface LaunderingAttempt {
@@ -247,6 +253,29 @@ async function seed() {
   const txCount = (db.prepare("SELECT COUNT(*) as n FROM transactions").get() as { n: number }).n;
   const acctCount = (db.prepare("SELECT COUNT(*) as n FROM accounts").get() as { n: number }).n;
   const caseCount = (db.prepare("SELECT COUNT(*) as n FROM case_memory").get() as { n: number }).n;
+
+  // --- FAISS Integration Start ---
+console.log("Building FAISS vector index for similarity search...");
+
+const embeddings = new OllamaEmbeddings({
+  model: "nomic-embed-text", // The model you just pulled!
+});
+
+// We query the cases we just inserted into SQLite to embed them
+const cases = db.prepare("SELECT * FROM case_memory").all() as any[];
+
+const docs = cases.map(c => new Document({
+  pageContent: `Typology: ${c.typology}. Factors: ${c.distinguishing_factors}`,
+  metadata: { id: c.id, outcome: c.outcome }
+}));
+
+// Create the FAISS store and save it locally
+const vectorStore = await FaissStore.fromDocuments(docs, embeddings);
+const INDEX_PATH = path.join(DATA_DIR, "faiss_index");
+await vectorStore.save(INDEX_PATH);
+
+console.log(`FAISS index saved to ${INDEX_PATH}`);
+// --- FAISS Integration End ---
 
   db.close();
   console.log(`\nDone.`);

@@ -265,7 +265,7 @@ const embeddings = new OllamaEmbeddings({
 const cases = db.prepare("SELECT * FROM case_memory").all() as any[];
 
 const docs = cases.map(c => new Document({
-  pageContent: `Typology: ${c.typology}. Factors: ${c.distinguishing_factors}`,
+  pageContent: `Typology: ${c.typology}. Factors: ${c.distinguishing_factor}`,
   metadata: { id: c.id, outcome: c.outcome }
 }));
 

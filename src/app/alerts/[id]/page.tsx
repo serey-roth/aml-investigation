@@ -6,6 +6,7 @@ import { InvestigationEvent } from "@/lib/types";
 import { stripTypologyPrefix } from "@/lib/utils";
 import { ToolResult } from "@/app/components/ToolResult";
 import { AuditTrail, AuditEntry, AlertSummary } from "@/app/components/AuditTrail";
+import { NetworkGraph } from "@/app/components/NetworkGraph";
 
 interface Alert {
   id: number;
@@ -99,6 +100,7 @@ export default function Page() {
   const [alert, setAlert] = useState<Alert | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
   const [running, setRunning] = useState(false);
+  const [evidenceTab, setEvidenceTab] = useState<"evidence" | "graph">("evidence");
   const [decided, setDecided] = useState(false);
   const [note, setNote] = useState("");
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
@@ -237,18 +239,40 @@ export default function Page() {
 
         {/* Evidence */}
         <div className="w-1/2 overflow-y-auto px-8 py-6">
-          <h2 className="text-xs uppercase tracking-widest text-neutral-500 mb-6">Evidence</h2>
-          <div className="space-y-8">
-            {toolResults.map((step, i) => (
-              <div key={i}>
-                <h3 className="text-xs font-medium text-neutral-400 mb-2">{TOOL_LABELS[step.tool] ?? step.tool}</h3>
-                <ToolResult tool={step.tool} data={step.data} />
-              </div>
+          {/* Tab bar */}
+          <div className="flex items-center gap-1 mb-6">
+            {(["evidence", "graph"] as const).map((t) => (
+              <button
+                key={t}
+                onClick={() => setEvidenceTab(t)}
+                className={`px-3 py-1 text-xs rounded capitalize transition-colors ${
+                  evidenceTab === t
+                    ? "bg-neutral-800 text-neutral-200"
+                    : "text-neutral-600 hover:text-neutral-400"
+                }`}
+              >
+                {t === "evidence" ? "Evidence" : "Network Graph"}
+              </button>
             ))}
-            {running && toolResults.length === 0 && (
-              <p className="text-xs text-neutral-600">Gathering evidence…</p>
-            )}
           </div>
+
+          {evidenceTab === "evidence" && (
+            <div className="space-y-8">
+              {toolResults.map((step, i) => (
+                <div key={i}>
+                  <h3 className="text-xs font-medium text-neutral-400 mb-2">{TOOL_LABELS[step.tool] ?? step.tool}</h3>
+                  <ToolResult tool={step.tool} data={step.data} />
+                </div>
+              ))}
+              {running && toolResults.length === 0 && (
+                <p className="text-xs text-neutral-600">Gathering evidence…</p>
+              )}
+            </div>
+          )}
+
+          {evidenceTab === "graph" && (
+            <NetworkGraph alertId={alertId} />
+          )}
         </div>
 
         {/* Reasoning + Decision */}

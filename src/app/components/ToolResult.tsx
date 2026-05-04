@@ -2,8 +2,8 @@ import {
   TransactionHistoryResult,
   VelocityResult,
   CounterpartyHistoryResult,
-  SimilarCasesResult,
 } from "@/lib/agent/loader";
+import type { Case } from "@/lib/types";
 import { TransactionTable } from "./TransactionTable";
 import { VelocityCard } from "./VelocityCard";
 import { CounterpartyCard } from "./CounterpartyCard";
@@ -27,7 +27,7 @@ export function ToolResult({ tool, data }: Props) {
     return <CounterpartyCard data={data as unknown as CounterpartyHistoryResult} />;
   }
   if (tool === "find_similar_cases") {
-    return <SimilarCasesList data={data as unknown as SimilarCasesResult} />;
+    return <SimilarCasesList cases={data as unknown as Case[]} />;
   }
 
   return (

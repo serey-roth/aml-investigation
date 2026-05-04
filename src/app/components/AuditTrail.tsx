@@ -1,18 +1,6 @@
 "use client";
 
-export interface AuditEntry {
-  id: number;
-  actor: string;
-  action: string;
-  detail: string | null;
-  created_at: string;
-}
-
-export interface AlertSummary {
-  account_id: string;
-  typology: string;
-  created_at: string;
-}
+import type { Alert, AuditEntry } from "@/lib/types";
 
 interface TimelineEvent {
   id: string;
@@ -46,13 +34,13 @@ function parseDecision(detail: string | null): { outcome: string; note?: string 
   } catch { return null; }
 }
 
-function buildEvents(alert: AlertSummary, entries: AuditEntry[]): TimelineEvent[] {
+function buildEvents(alert: Alert, entries: AuditEntry[]): TimelineEvent[] {
   const events: TimelineEvent[] = [
     {
       id: "alert",
       label: "Alert Opened",
-      description: `Account ${alert.account_id} flagged for ${alert.typology}.`,
-      timestamp: alert.created_at,
+      description: `Account ${alert.accountId} flagged for ${alert.typology}.`,
+      timestamp: alert.createdAt,
     },
   ];
 
@@ -64,7 +52,7 @@ function buildEvents(alert: AlertSummary, entries: AuditEntry[]): TimelineEvent[
         id: String(e.id),
         label: "AI Investigation Complete",
         description: verdict ? `Recommended ${verdict}. ${summary}` : summary || "Investigation complete.",
-        timestamp: e.created_at,
+        timestamp: e.createdAt,
         highlight: verdict === "FILE SAR" ? "red" : verdict === "CLOSE CASE" ? "green" : undefined,
       });
     } else if (e.action === "decision") {
@@ -76,7 +64,7 @@ function buildEvents(alert: AlertSummary, entries: AuditEntry[]): TimelineEvent[
         description: isSAR
           ? `SAR filed by analyst.${d?.note ? ` "${d.note}"` : ""}`
           : `Case closed, no filing.${d?.note ? ` "${d.note}"` : ""}`,
-        timestamp: e.created_at,
+        timestamp: e.createdAt,
         highlight: isSAR ? "red" : "green",
       });
     } else if (e.action === "flag") {
@@ -89,7 +77,7 @@ function buildEvents(alert: AlertSummary, entries: AuditEntry[]): TimelineEvent[
           description: isEscalated
             ? `Escalated.${d.note ? ` "${d.note}"` : ""}`
             : `More information requested.${d.note ? ` "${d.note}"` : ""}`,
-          timestamp: e.created_at,
+          timestamp: e.createdAt,
           highlight: isEscalated ? "red" : undefined,
         });
       } catch { /* ignore */ }
@@ -114,7 +102,7 @@ export function AuditTrail({
   open,
   onClose,
 }: {
-  alert: AlertSummary;
+  alert: Alert;
   entries: AuditEntry[];
   open: boolean;
   onClose: () => void;

@@ -36,6 +36,7 @@ function parseAgentRecommendation(
 export async function GET() {
   const db = getDb();
 
+  // Use SQL aggregation for counts instead of loading all records
   const totalAlerts = (
     db.prepare("SELECT COUNT(*) as n FROM alerts").get() as { n: number }
   ).n;
@@ -47,6 +48,7 @@ export async function GET() {
   const totalOpen = totalAlerts - totalClosed;
 
   // Bug #7 fix: LEFT JOIN so closed cases with no case_memory row are included
+  // Only fetch necessary fields to minimize memory usage
   const closedCases = db
     .prepare(
       `SELECT a.id as alert_id, a.typology, cm.outcome
@@ -56,15 +58,49 @@ export async function GET() {
     )
     .all() as { alert_id: number; typology: string; outcome: string | null }[];
 
-  // Bug #3 fix: track the LATEST recommendation and LATEST decision per alert.
-  // Ordered ASC so later rows overwrite earlier ones in the map.
-  const auditRows = db
+  // Optimization: Use SQL to aggregate per-typology counts and stats
+  // This reduces memory usage by computing at database level instead of in JS
+  const typologyCountsByOutcome = db
+    .prepare(
+      `SELECT a.typology,
+              COUNT(CASE WHEN cm.outcome = 'SAR_FILED' THEN 1 END) as sarFiled,
+              COUNT(CASE WHEN cm.outcome = 'NO_FILE' THEN 1 END) as noFile,
+              COUNT(CASE WHEN cm.outcome IS NULL THEN 1 END) as unknown
+       FROM alerts a
+       LEFT JOIN case_memory cm ON cm.alert_id = a.id
+       WHERE a.status = 'closed'
+       GROUP BY a.typology`
+    )
+    .all() as {
+      typology: string;
+      sarFiled: number;
+      noFile: number;
+      unknown: number;
+    }[];
+
+  // Optimization: Get total alerts per typology using SQL aggregation
+  const typologyTotals = db
+    .prepare(
+      `SELECT typology, COUNT(*) as total
+       FROM alerts
+       GROUP BY typology`
+    )
+    .all() as { typology: string; total: number }[];
+
+  // Bug #3 fix: Get LATEST recommendation and decision per alert efficiently
+  // Using window functions to get only the most recent rows
+  const auditLatestRows = db
     .prepare(
       `SELECT alert_id, action, detail,
-              -- Bug #8 fix: use SQLite unix seconds to avoid JS timezone parsing
               CAST(strftime('%s', created_at) AS INTEGER) as ts_sec
        FROM audit_trail
        WHERE action IN ('recommendation', 'decision')
+         AND (alert_id, action, created_at) IN (
+           SELECT alert_id, action, MAX(created_at)
+           FROM audit_trail
+           WHERE action IN ('recommendation', 'decision')
+           GROUP BY alert_id, action
+         )
        ORDER BY alert_id, ts_sec ASC`
     )
     .all() as {
@@ -74,12 +110,13 @@ export async function GET() {
       ts_sec: number;
     }[];
 
+  // Map latest audit entries per alert (much smaller dataset now)
   interface AuditPair {
     recommendation: { detail: string; ts_sec: number } | null;
     decision: { detail: string; ts_sec: number } | null;
   }
   const auditByAlert = new Map<number, AuditPair>();
-  for (const row of auditRows) {
+  for (const row of auditLatestRows) {
     if (!auditByAlert.has(row.alert_id)) {
       auditByAlert.set(row.alert_id, {
         recommendation: null,
@@ -87,7 +124,6 @@ export async function GET() {
       });
     }
     const pair = auditByAlert.get(row.alert_id)!;
-    // ASC order means last write wins → always the most recent entry
     if (row.action === "recommendation") {
       pair.recommendation = { detail: row.detail, ts_sec: row.ts_sec };
     } else if (row.action === "decision") {
@@ -95,6 +131,7 @@ export async function GET() {
     }
   }
 
+  // Build typology map with pre-computed values
   const typologyMap = new Map<string, TypologyStats>();
   const ensureTypology = (t: string) => {
     if (!typologyMap.has(t)) {
@@ -114,26 +151,28 @@ export async function GET() {
     return typologyMap.get(t)!;
   };
 
-  // Seed totals from all alerts (including open)
-  const allAlerts = db
-    .prepare("SELECT id, typology FROM alerts")
-    .all() as { id: number; typology: string }[];
-  for (const a of allAlerts) ensureTypology(a.typology).total++;
+  // Initialize with total counts from SQL aggregation
+  for (const { typology, total } of typologyTotals) {
+    ensureTypology(typology).total = total;
+  }
+
+  // Add outcome counts from SQL aggregation
+  for (const row of typologyCountsByOutcome) {
+    const stat = ensureTypology(row.typology);
+    stat.sarFiled = row.sarFiled;
+    stat.noFile = row.noFile;
+    stat.unknown = row.unknown;
+  }
 
   const decisionMsList = new Map<string, number[]>();
   let globalMatchCount = 0;
   let globalPairCount = 0;
 
+  // Only process closed cases with audit data
   for (const c of closedCases) {
-    const stat = ensureTypology(c.typology);
-
-    // Bug #7: handle null outcome from LEFT JOIN
-    if (c.outcome === "SAR_FILED") stat.sarFiled++;
-    else if (c.outcome === "NO_FILE") stat.noFile++;
-    else stat.unknown++;
-
     const pair = auditByAlert.get(c.alert_id);
     if (pair?.recommendation && pair?.decision) {
+      const stat = ensureTypology(c.typology);
       const agentVerdict = parseAgentRecommendation(
         pair.recommendation.detail
       );

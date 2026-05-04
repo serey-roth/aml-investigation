@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getAuditTrail } from "@/lib/db/repositories/alert";
+import { getAuditTrail } from "@/lib/db/repositories/audit";
 
 export const runtime = "nodejs";
 

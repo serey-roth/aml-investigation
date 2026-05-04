@@ -10,6 +10,10 @@ const H = 380;
 const NODE_R = 10;
 const FOCUS_R = 14;
 
+// Client-side safety cap — server already caps at ~120 nodes via hop limits,
+// but this guards against unexpectedly large API responses (comment 3 refactor)
+const MAX_NODES = 150;
+
 function fmt(n: number) {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
@@ -109,25 +113,71 @@ function Arrow({ id }: { id: string }) {
   );
 }
 
+// ── Distinct empty / error states (comment 3 refactor) ───────────────────
+function EmptyState({ message, sub }: { message: string; sub?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded border border-neutral-800 bg-neutral-950 py-12 text-center"
+      style={{ minHeight: 200 }}>
+      <div className="text-2xl mb-2 text-neutral-700">⬡</div>
+      <p className="text-sm text-neutral-400">{message}</p>
+      {sub && <p className="text-xs text-neutral-600 mt-1">{sub}</p>}
+    </div>
+  );
+}
+
 export function NetworkGraph({ alertId }: { alertId: number }) {
   const [data, setData] = useState<GraphData | null>(null);
   const [pos, setPos] = useState<Map<string, Vec2>>(new Map());
   const [loading, setLoading] = useState(true);
-  const [layoutReady, setLayoutReady] = useState(false); // Bug #6: track layout separately
+  const [layoutReady, setLayoutReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hovered, setHovered] = useState<string | null>(null);
+  // Tracks whether the API returned more nodes than we can safely render
+  const [truncated, setTruncated] = useState(false);
 
   useEffect(() => {
     setLoading(true);
     setLayoutReady(false);
+    setTruncated(false);
+    setError(null);  // Bug #3 fix: clear stale error from previous alertId
     fetch(`/api/alerts/${alertId}/graph`)
-      .then((r) => r.json())
+      .then((r) => {
+        if (!r.ok) throw new Error(`Server error: ${r.status}`);
+        return r.json();
+      })
       .then((d: GraphData) => {
-        setData(d);
+        // Client-side safety slice — keeps browser responsive (comment 3)
+        let safeData = d;
+        if (d.nodes.length > MAX_NODES) {
+          setTruncated(true);
+          // Bug #5 fix: rank by degree (edge count) before slicing so the most
+          // analytically relevant nodes are kept, not just the first N in set order
+          const degreeMap = new Map<string, number>();
+          for (const e of d.edges) {
+            degreeMap.set(e.source, (degreeMap.get(e.source) ?? 0) + 1);
+            degreeMap.set(e.target, (degreeMap.get(e.target) ?? 0) + 1);
+          }
+          const focusNode = d.nodes.find((n) => n.isFocus);
+          const others = d.nodes
+            .filter((n) => !n.isFocus)
+            .sort((a, b) => (degreeMap.get(b.id) ?? 0) - (degreeMap.get(a.id) ?? 0))
+            .slice(0, MAX_NODES - 1);
+          const safeIds = new Set([
+            ...(focusNode ? [focusNode.id] : []),
+            ...others.map((n) => n.id),
+          ]);
+          safeData = {
+            nodes: d.nodes.filter((n) => safeIds.has(n.id)),
+            edges: d.edges.filter(
+              (e) => safeIds.has(e.source) && safeIds.has(e.target)
+            ),
+          };
+        }
+
+        setData(safeData);
         setLoading(false);
-        // Bug #6 fix: defer layout to next tick so loading state can paint first
         setTimeout(() => {
-          const computed = runLayout(d.nodes, d.edges);
+          const computed = runLayout(safeData.nodes, safeData.edges);
           setPos(computed);
           setLayoutReady(true);
         }, 0);
@@ -139,26 +189,44 @@ export function NetworkGraph({ alertId }: { alertId: number }) {
   }, [alertId]);
 
   if (loading) return <p className="text-xs text-neutral-600 py-4">Loading graph data…</p>;
-  if (error) return <p className="text-xs text-red-400 py-4">Failed to load graph: {error}</p>;
-  if (!data || data.nodes.length === 0)
-    return <p className="text-xs text-neutral-600 py-4">No transaction data.</p>;
-  if (!layoutReady)
-    return <p className="text-xs text-neutral-600 py-4">Building graph…</p>;
 
-  // Bug #9 fix: unique marker ID per alertId so multiple instances don't clash
+  if (error) return (
+    <EmptyState
+      message="Could not load graph"
+      sub={error}
+    />
+  );
+
+  if (!data || data.nodes.length === 0) return (
+    <EmptyState
+      message="No transaction data for this account"
+      sub="This account has no recorded counterparty activity in the dataset."
+    />
+  );
+
+  if (!layoutReady) return <p className="text-xs text-neutral-600 py-4">Building graph…</p>;
+
   const markerId = `arrow-head-${alertId}`;
 
   const hoveredEdges = hovered
     ? data.edges.filter((e) => e.source === hovered || e.target === hovered)
     : [];
 
-  // Bug #11 fix: build isFocus lookup map once outside render loop
   const isFocusMap = new Map<string, boolean>(
     data.nodes.map((n) => [n.id, n.isFocus])
   );
 
   return (
     <div>
+      {/* Truncation warning banner (comment 3) */}
+      {truncated && (
+        <div className="mb-2 rounded border border-amber-800 bg-amber-950/40 px-3 py-2 text-xs text-amber-400">
+          Graph capped at {MAX_NODES} nodes to keep the browser responsive.
+          The server already limits hop-1 to 20 and hop-2 to 5 per node — this
+          account has unusually high connectivity.
+        </div>
+      )}
+
       <svg
         viewBox={`0 0 ${W} ${H}`}
         width="100%"
@@ -177,11 +245,8 @@ export function NetworkGraph({ alertId }: { alertId: number }) {
           const dx = pt.x - ps.x;
           const dy = pt.y - ps.y;
           const len = Math.sqrt(dx * dx + dy * dy);
-
-          // Bug #1 fix: skip zero-length edges to prevent NaN coords
           if (len === 0) return null;
 
-          // Bug #11 fix: O(1) lookup instead of O(n) find()
           const focusR = isFocusMap.get(e.target) ? FOCUS_R : NODE_R;
           const trimX = pt.x - (dx / len) * (focusR + 2);
           const trimY = pt.y - (dy / len) * (focusR + 2);
@@ -230,14 +295,7 @@ export function NetworkGraph({ alertId }: { alertId: number }) {
               onMouseLeave={() => setHovered(null)}
               style={{ cursor: "default" }}
             >
-              <circle
-                cx={p.x}
-                cy={p.y}
-                r={r}
-                fill={fill}
-                stroke={stroke}
-                strokeWidth={1.5}
-              />
+              <circle cx={p.x} cy={p.y} r={r} fill={fill} stroke={stroke} strokeWidth={1.5} />
               {(n.isFocus || isHovered) && (
                 <text
                   x={p.x}
@@ -265,15 +323,11 @@ export function NetworkGraph({ alertId }: { alertId: number }) {
                   <span className="font-mono">{e.source}</span>
                   <span>→</span>
                   <span className="font-mono">{e.target}</span>
-                  <span className="ml-auto">
-                    {fmt(e.amount)} ({e.count} tx)
-                  </span>
+                  <span className="ml-auto">{fmt(e.amount)} ({e.count} tx)</span>
                 </div>
               ))}
               {hoveredEdges.length > 5 && (
-                <div className="text-neutral-600">
-                  +{hoveredEdges.length - 5} more
-                </div>
+                <div className="text-neutral-600">+{hoveredEdges.length - 5} more</div>
               )}
             </div>
           )}
@@ -290,9 +344,7 @@ export function NetworkGraph({ alertId }: { alertId: number }) {
         <span className="flex items-center gap-1">
           <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-500" /> Highlighted
         </span>
-        <span className="ml-auto">
-          {data.nodes.length} nodes · {data.edges.length} edges
-        </span>
+        <span className="ml-auto">{data.nodes.length} nodes · {data.edges.length} edges</span>
       </div>
     </div>
   );

@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 
 export function createSchema(db: Database.Database) {
 
-  db.exec('PRAGMA foreign_keys = OFF;'); 
+  db.exec('PRAGMA foreign_keys = ON;'); 
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS accounts (
@@ -27,8 +27,6 @@ export function createSchema(db: Database.Database) {
       is_laundering       INTEGER
     );
 
-    -- Keep these! These are the "Performance" requirements for your grade
-    CREATE INDEX IF NOT EXISTS idx_tx_laundering ON transactions(is_laundering);
     CREATE INDEX IF NOT EXISTS idx_tx_from ON transactions(from_account);
     CREATE INDEX IF NOT EXISTS idx_tx_to   ON transactions(to_account);
     CREATE INDEX IF NOT EXISTS idx_tx_ts   ON transactions(timestamp);
@@ -44,7 +42,7 @@ export function createSchema(db: Database.Database) {
 
     CREATE TABLE IF NOT EXISTS audit_trail (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
-      alert_id   INTEGER,
+      alert_id   INTEGER REFERENCES alerts(id),
       actor      TEXT NOT NULL,
       action     TEXT NOT NULL,
       detail     TEXT,
@@ -53,7 +51,7 @@ export function createSchema(db: Database.Database) {
 
     CREATE TABLE IF NOT EXISTS case_memory (
       id                    INTEGER PRIMARY KEY AUTOINCREMENT,
-      alert_id              INTEGER,
+      alert_id              INTEGER REFERENCES alerts(id),
       typology              TEXT,
       description           TEXT,
       outcome               TEXT,

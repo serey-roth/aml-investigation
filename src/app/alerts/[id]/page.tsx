@@ -7,6 +7,7 @@ import { stripTypologyPrefix } from "@/lib/utils";
 import { ToolResult } from "@/app/components/ToolResult";
 import { AuditTrail } from "@/app/components/AuditTrail";
 import { NetworkGraph } from "@/app/components/NetworkGraph";
+import { SARNarrative } from "@/app/components/SARNarrative";
 
 
 type ToolResultStep = {
@@ -99,6 +100,7 @@ export default function Page() {
   const [activityOpen, setActivityOpen] = useState(false);
   const tokenBufferRef = useRef("");
   const runningRef = useRef(false);
+  const isDecided = !!alert && ["closed"].includes(alert.status);
 
   const refreshAudit = () => {
     fetch(`/api/alerts/${alertId}/audit`).then((r) => r.json()).then(setAuditEntries);
@@ -345,6 +347,12 @@ export default function Page() {
               </div>
             </div>
           ) : null}
+          {/* SAR Narrative — shown after case is closed */}
+          {alert && (
+            <div className="mt-8">
+              <SARNarrative alertId={alertId} isDecided={isDecided} />
+            </div>
+          )}
         </div>
 
       </div>

@@ -53,6 +53,29 @@ export interface AuditEntry {
   createdAt: string;
 }
 
+export interface TypologyStats {
+  typology: string;
+  total: number;
+  sarFiled: number;
+  noFile: number;
+  unknown: number;
+  agentMatchCount: number;
+  agentTotalCount: number;
+  agreementRate: number;
+  falsePositiveRate: number;
+  avgDecisionMs: number;
+}
+
+export interface AnalyticsData {
+  totalAlerts: number;
+  totalClosed: number;
+  totalOpen: number;
+  overallSarRate: number;
+  overallFalsePositiveRate: number;
+  overallAgreementRate: number;
+  byTypology: TypologyStats[];
+}
+
 export type InvestigationEvent =
   | { type: "tool_call"; name: string; input: Record<string, unknown> }
   | { type: "tool_result"; name: string; output: string }

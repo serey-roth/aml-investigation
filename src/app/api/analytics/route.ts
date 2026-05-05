@@ -6,31 +6,10 @@ import {
   getClosedCasesWithOutcome,
 } from "@/lib/db/repositories/alert";
 import { getLatestRecommendationsAndDecisions } from "@/lib/db/repositories/audit";
-
+import type { TypologyStats, AnalyticsData } from "@/lib/types";
+export type { TypologyStats, AnalyticsData };
 export const runtime = "nodejs";
 
-export interface TypologyStats {
-  typology: string;
-  total: number;
-  sarFiled: number;
-  noFile: number;
-  unknown: number;           // closed but no case_memory entry (bug #7)
-  agentMatchCount: number;
-  agentTotalCount: number;
-  agreementRate: number;
-  falsePositiveRate: number;
-  avgDecisionMs: number;     // mean (label corrected from "median", bug #4)
-}
-
-export interface AnalyticsData {
-  totalAlerts: number;
-  totalClosed: number;
-  totalOpen: number;
-  overallSarRate: number;
-  overallFalsePositiveRate: number;
-  overallAgreementRate: number;
-  byTypology: TypologyStats[];
-}
 
 function parseAgentRecommendation(
   text: string

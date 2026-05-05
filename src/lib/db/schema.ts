@@ -2,6 +2,8 @@ import Database from "better-sqlite3";
 import * as sqliteVec from "sqlite-vec";
 
 export function createSchema(db: Database.Database) {
+
+  db.exec('PRAGMA foreign_keys = ON;'); 
   sqliteVec.load(db);
 
   db.exec(`
@@ -15,7 +17,7 @@ export function createSchema(db: Database.Database) {
     CREATE TABLE IF NOT EXISTS transactions (
       id                  INTEGER PRIMARY KEY AUTOINCREMENT,
       timestamp           TEXT,
-      from_account        TEXT,
+      from_account        TEXT, 
       from_bank           TEXT,
       to_account          TEXT,
       to_bank             TEXT,
@@ -41,20 +43,20 @@ export function createSchema(db: Database.Database) {
     );
 
     CREATE TABLE IF NOT EXISTS audit_trail (
-      id        INTEGER PRIMARY KEY AUTOINCREMENT,
-      alert_id  INTEGER REFERENCES alerts(id),
-      actor     TEXT NOT NULL,
-      action    TEXT NOT NULL,
-      detail    TEXT,
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      alert_id   INTEGER REFERENCES alerts(id),
+      actor      TEXT NOT NULL,
+      action     TEXT NOT NULL,
+      detail     TEXT,
       created_at TEXT DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS case_memory (
-      id                   INTEGER PRIMARY KEY AUTOINCREMENT,
-      alert_id             INTEGER REFERENCES alerts(id),
-      typology             TEXT,
-      description          TEXT,
-      outcome              TEXT,
+      id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+      alert_id              INTEGER REFERENCES alerts(id),
+      typology              TEXT,
+      description           TEXT,
+      outcome               TEXT,
       distinguishing_factor TEXT
     );
 

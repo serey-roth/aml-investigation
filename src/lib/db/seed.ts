@@ -5,16 +5,12 @@ import * as path from "path";
 import { createSchema } from "./schema";
 import { getTypologyDefinition } from "../typologies";
 import { OllamaEmbeddings } from "@langchain/ollama";
-import { FaissStore } from "@langchain/community/vectorstores/faiss";
-import { Document } from "@langchain/core/documents";
+import * as sqliteVec from "sqlite-vec";
+import { AccountDb, TransactionDb } from "./types";
 
 const DATA_DIR = path.join(process.cwd(), "src/data");
 const DB_PATH = path.join(DATA_DIR, "aml.db");
 const CLEAN_ACCOUNT_SAMPLE = 200;
-const embeddings = new OllamaEmbeddings({
-  model: "nomic-embed-text",
-});
-
 
 interface LaunderingAttempt {
   typology: string;
@@ -22,30 +18,14 @@ interface LaunderingAttempt {
   transactionCount: number;
 }
 
-interface AccountRow {
-  account_id: string;
-  bank_id: string;
-  bank_name: string;
-  entity_name: string;
-}
+async function parsePatternsTxt(filePath: string): Promise<LaunderingAttempt[]> {
+  const fullPath = path.join(DATA_DIR, filePath);
+  if (!fs.existsSync(fullPath)) {
+    throw new Error(`File not found: ${fullPath}`);
+  }
 
-interface TxRow {
-  timestamp: string;
-  from_bank: string;
-  from_account: string;
-  to_bank: string;
-  to_account: string;
-  amount_paid: number;
-  payment_currency: string;
-  amount_received: number;
-  receiving_currency: string;
-  payment_format: string;
-  is_laundering: number;
-}
-
-async function parsePatternsFile(): Promise<LaunderingAttempt[]> {
   const attempts: LaunderingAttempt[] = [];
-  const rl = readline.createInterface({ input: fs.createReadStream(path.join(DATA_DIR, "HI-Small_Patterns.txt")) });
+  const rl = readline.createInterface({ input: fs.createReadStream(fullPath) });
 
   let current: LaunderingAttempt | null = null;
 
@@ -61,8 +41,10 @@ async function parsePatternsFile(): Promise<LaunderingAttempt[]> {
     } else if (current && line.trim() && !line.startsWith("BEGIN") && !line.startsWith("END")) {
       const parts = line.split(",");
       if (parts.length >= 5) {
-        current.accounts.add(parts[2].trim()); // from_account
-        current.accounts.add(parts[4].trim()); // to_account
+        const fromAccount = parts[2].trim();
+        const toAccount = parts[4].trim()
+        current.accounts.add(fromAccount);
+        current.accounts.add(toAccount);
         current.transactionCount++;
       }
     }
@@ -71,7 +53,6 @@ async function parsePatternsFile(): Promise<LaunderingAttempt[]> {
   return attempts;
 }
 
-// ---------- Stream CSV line by line ----------
 
 async function streamCsv(filePath: string, onRow: (row: string[]) => void): Promise<void> {
   const rl = readline.createInterface({ input: fs.createReadStream(filePath) });
@@ -82,60 +63,57 @@ async function streamCsv(filePath: string, onRow: (row: string[]) => void): Prom
   }
 }
 
-// ---------- Main ----------
 
-async function seed() {
-  console.log("Parsing patterns file...");
-  const attempts = await parsePatternsFile();
-  console.log(`Found ${attempts.length} laundering attempts`);
-
-  // Collect all account IDs involved in laundering
-  const launderingAccounts = new Set<string>();
-  for (const attempt of attempts) {
-    for (const id of attempt.accounts) launderingAccounts.add(id);
+async function parseAccountCsv(filePath: string, isLaunderingAccount: (accountId: string) => boolean) {
+  const fullPath = path.join(DATA_DIR, filePath);
+  if (!fs.existsSync(fullPath)) {
+    throw new Error(`File not found: ${fullPath}`);
   }
-  console.log(`Laundering accounts: ${launderingAccounts.size}`);
 
-  // Sample clean accounts
-  console.log("Sampling clean accounts...");
-  const cleanAccounts: AccountRow[] = [];
-  const allLaunderingAccountRows = new Map<string, AccountRow>();
+  const cleanAccounts: AccountDb[] = [];
+  const launderingAccounts = new Map<string, AccountDb>();
 
-  await streamCsv(path.join(DATA_DIR, "HI-Small_accounts.csv"), (parts) => {
+  console.log("Collecting clean and laundering accounts...")
+  await streamCsv(fullPath, (parts) => {
     if (parts.length < 5) return;
-    const row: AccountRow = {
+    const account: AccountDb = {
       bank_name: parts[0].trim(),
       bank_id: parts[1].trim(),
       account_id: parts[2].trim(),
       entity_name: parts[4].trim(),
     };
-    if (launderingAccounts.has(row.account_id)) {
-      allLaunderingAccountRows.set(row.account_id, row);
+    if (isLaunderingAccount(account.account_id)) {
+      launderingAccounts.set(account.account_id, account);
     } else if (cleanAccounts.length < CLEAN_ACCOUNT_SAMPLE) {
-      cleanAccounts.push(row);
+      cleanAccounts.push(account);
     }
   });
 
-  const allAccounts = [...allLaunderingAccountRows.values(), ...cleanAccounts];
-  const allAccountIds = new Set(allAccounts.map((a) => a.account_id));
-  console.log(`Total accounts to seed: ${allAccounts.length}`);
+  const allAccounts = [...launderingAccounts.values(), ...cleanAccounts];
+  
+  return {
+    cleanAccounts,
+    launderingAccounts,
+    allAccounts
+  }
+}
 
-  // Stream transactions for selected accounts
-  console.log("Streaming transactions (this may take a moment)...");
-  const transactions: TxRow[] = [];
 
-  await streamCsv(path.join(DATA_DIR, "HI-Small_Trans.csv"), (parts) => {
+async function parseTransactionCsv(filePath: string, allAccountIds: Set<String>) {
+  const transactions: TransactionDb[] = [];
+
+  await streamCsv(path.join(DATA_DIR, filePath), (parts) => {
     if (parts.length < 11) return;
-    const fromAccount = parts[2].trim();
-    const toAccount = parts[4].trim();
-    if (!allAccountIds.has(fromAccount) && !allAccountIds.has(toAccount)) return;
+    const fromAccountId = parts[2].trim();
+    const toAccountId = parts[4].trim();
+    if (!allAccountIds.has(fromAccountId) && !allAccountIds.has(toAccountId)) return;
 
     transactions.push({
       timestamp: parts[0].trim(),
       from_bank: parts[1].trim(),
-      from_account: fromAccount,
+      from_account: fromAccountId,
       to_bank: parts[3].trim(),
-      to_account: toAccount,
+      to_account: toAccountId,
       amount_received: parseFloat(parts[5]),
       receiving_currency: parts[6].trim(),
       amount_paid: parseFloat(parts[7]),
@@ -145,20 +123,34 @@ async function seed() {
     });
   });
 
-  console.log(`Transactions to seed: ${transactions.length}`);
+  return transactions
+}
 
-  // Write to SQLite
-  console.log("Writing to SQLite...");
-  if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-  const db = new Database(DB_PATH);
-  createSchema(db);
 
-  const insertAccount = db.prepare(`
-    INSERT OR IGNORE INTO accounts (account_id, bank_id, bank_name, entity_name)
+function splitAttempts(attempts: LaunderingAttempt[]): { caseMemory: LaunderingAttempt[]; openAlerts: LaunderingAttempt[] } {
+  const byTypology = Map.groupBy(attempts, (a) => a.typology);
+  const caseMemory: LaunderingAttempt[] = [];
+  const openAlerts: LaunderingAttempt[] = [];
+
+  for (const [, group] of byTypology) {
+    const split = Math.max(1, Math.floor(group.length * 0.8));
+    caseMemory.push(...group.slice(0, split));
+    openAlerts.push(...group.slice(split));
+  }
+
+  return { caseMemory, openAlerts };
+}
+
+function seedAccounts(db: Database.Database, accounts: AccountDb[]): void {
+  const insert = db.prepare(`
+    INSERT INTO accounts (account_id, bank_id, bank_name, entity_name)
     VALUES (@account_id, @bank_id, @bank_name, @entity_name)
   `);
+  db.transaction(() => { for (const a of accounts) insert.run(a); })();
+}
 
-  const insertTx = db.prepare(`
+function seedTransactions(db: Database.Database, transactions: TransactionDb[]): void {
+  const insert = db.prepare(`
     INSERT INTO transactions
       (timestamp, from_account, from_bank, to_account, to_bank,
        amount_paid, payment_currency, amount_received, receiving_currency,
@@ -168,120 +160,84 @@ async function seed() {
        @amount_paid, @payment_currency, @amount_received, @receiving_currency,
        @payment_format, @is_laundering)
   `);
+  db.transaction(() => { for (const tx of transactions) insert.run(tx); })();
+}
 
-  const insertAlert = db.prepare(`
-    INSERT INTO alerts (account_id, typology, description, status)
-    VALUES (@account_id, @typology, @description, @status)
-  `);
+function seedCaseMemory(db: Database.Database, attempts: LaunderingAttempt[]): void {
+  const insertAlert = db.prepare(`INSERT INTO alerts (account_id, typology, description, status) VALUES (@account_id, @typology, @description, @status)`);
+  const insertCase = db.prepare(`INSERT INTO case_memory (alert_id, typology, description, outcome, distinguishing_factor) VALUES (@alert_id, @typology, @description, @outcome, @distinguishing_factor)`);
 
-  const insertCase = db.prepare(`
-    INSERT INTO case_memory (alert_id, typology, description, outcome, distinguishing_factor)
-    VALUES (@alert_id, @typology, @description, @outcome, @distinguishing_factor)
-  `);
-
-  db.transaction(() => {
-    for (const a of allAccounts) insertAccount.run(a);
-  })();
-
-  db.transaction(() => {
-    for (const tx of transactions) insertTx.run(tx);
-  })();
-
-  // Seed alerts + case_memory from laundering attempts
   db.transaction(() => {
     for (const attempt of attempts) {
       const primaryAccount = [...attempt.accounts][0];
       const description = `${attempt.typology} pattern involving ${attempt.accounts.size} accounts and ${attempt.transactionCount} transactions`;
       const typology = getTypologyDefinition(attempt.typology);
-
-      const alertResult = insertAlert.run({
-        account_id: primaryAccount,
-        typology: attempt.typology,
-        description,
-        status: "closed",
-      });
-
-      insertCase.run({
-        alert_id: alertResult.lastInsertRowid,
-        typology: attempt.typology,
-        description,
-        outcome: "SAR_FILED",
-        distinguishing_factor: typology?.amlSignificance ?? "Suspicious transaction pattern detected",
-      });
-    }
-
-    // Add a few NO_FILE cases for realism
-    const noFileCases = [
-      { typology: "FAN-OUT", description: "Fan-out pattern — customer confirmed as payroll processor", distinguishing_factor: "Legitimate business with documented payroll operations" },
-      { typology: "CYCLE", description: "Apparent cycle — traced to intercompany treasury management", distinguishing_factor: "Funds returned to parent entity, documented sweep arrangement" },
-      { typology: "GATHER-SCATTER", description: "Gather-scatter pattern — investment fund rebalancing", distinguishing_factor: "Customer is registered investment advisor with regulatory filings" },
-    ];
-
-    for (const c of noFileCases) {
-      const alertResult = insertAlert.run({
-        account_id: [...launderingAccounts][0],
-        typology: c.typology,
-        description: c.description,
-        status: "closed",
-      });
-      insertCase.run({
-        alert_id: alertResult.lastInsertRowid,
-        typology: c.typology,
-        description: c.description,
-        outcome: "NO_FILE",
-        distinguishing_factor: c.distinguishing_factor,
-      });
+      const alertResult = insertAlert.run({ account_id: primaryAccount, typology: attempt.typology, description, status: "closed" });
+      insertCase.run({ alert_id: alertResult.lastInsertRowid, typology: attempt.typology, description, outcome: "SAR_FILED", distinguishing_factor: typology?.amlSignificance ?? "Suspicious transaction pattern detected" });
     }
   })();
+}
 
-  // Seed open alerts — one per typology for the dashboard queue
-  const typologiesSeeded = new Set<string>();
+function seedOpenAlerts(db: Database.Database, attempts: LaunderingAttempt[]): void {
+  const insert = db.prepare(`INSERT INTO alerts (account_id, typology, description, status) VALUES (@account_id, @typology, @description, @status)`);
+  const seenTypologies = new Set<string>();
   db.transaction(() => {
     for (const attempt of attempts) {
-      if (typologiesSeeded.has(attempt.typology)) continue;
-      typologiesSeeded.add(attempt.typology);
-      const primaryAccount = [...attempt.accounts][0];
-      insertAlert.run({
-        account_id: primaryAccount,
-        typology: attempt.typology,
-        description: `${attempt.typology} pattern detected: ${attempt.accounts.size} accounts involved, ${attempt.transactionCount} transactions flagged`,
-        status: "open",
-      });
+      if (seenTypologies.has(attempt.typology)) continue;
+      seenTypologies.add(attempt.typology);
+      insert.run({ account_id: [...attempt.accounts][0], typology: attempt.typology, description: `${attempt.typology} pattern detected: ${attempt.accounts.size} accounts involved, ${attempt.transactionCount} transactions flagged`, status: "open" });
     }
   })();
+}
 
-  const txCount = (db.prepare("SELECT COUNT(*) as n FROM transactions").get() as { n: number }).n;
-  const acctCount = (db.prepare("SELECT COUNT(*) as n FROM accounts").get() as { n: number }).n;
-  const caseCount = (db.prepare("SELECT COUNT(*) as n FROM case_memory").get() as { n: number }).n;
+async function seedEmbeddings(db: Database.Database): Promise<number> {
+  sqliteVec.load(db);
+  const embeddings = new OllamaEmbeddings({ model: "nomic-embed-text" });
+  const cases = db.prepare("SELECT * FROM case_memory").all() as any[];
+  const insert = db.prepare("INSERT INTO case_embeddings (case_id, embedding) VALUES (?, ?)");
+  for (const c of cases) {
+    const vector = await embeddings.embedQuery(`Typology: ${c.typology}. Factors: ${c.distinguishing_factor}`);
+    insert.run(BigInt(c.id), JSON.stringify(vector));
+  }
+  return cases.length;
+}
 
-  // --- FAISS Integration Start ---
-console.log("Building FAISS vector index for similarity search...");
+async function seed() {
+  console.log("Parsing laundering patterns file...");
+  const attempts = await parsePatternsTxt("HI-Small_Patterns.txt");
+  console.log(`Found ${attempts.length} laundering attempts`);
 
-const embeddings = new OllamaEmbeddings({
-  model: "nomic-embed-text", // The model you just pulled!
-});
+  console.log("Collectiong account IDs involved in laundering...")
+  const accountsInLaundering = new Set<string>();
+  for (const attempt of attempts) {
+    for (const id of attempt.accounts) accountsInLaundering.add(id);
+  }
+  console.log(`Accounts involved in laundering: ${accountsInLaundering.size}`);
 
-// We query the cases we just inserted into SQLite to embed them
-const cases = db.prepare("SELECT * FROM case_memory").all() as any[];
+  console.log("Parsing accounts file...");
+  const { launderingAccounts, allAccounts } = await parseAccountCsv("HI-Small_accounts.csv", (accountId) => accountsInLaundering.has(accountId))
+  console.log(`Total accounts: ${allAccounts.length}`);
 
-const docs = cases.map(c => new Document({
-  pageContent: `Typology: ${c.typology}. Factors: ${c.distinguishing_factor}`,
-  metadata: { id: c.id, outcome: c.outcome }
-}));
+  console.log("Parsing transactions file...");
+  const allAccountIds = new Set(allAccounts.map(a => a.account_id));
+  const transactions = await parseTransactionCsv("HI-Small_Trans.csv", allAccountIds);
+  console.log(`Total transactions: ${transactions.length}`);
 
-// Create the FAISS store and save it locally
-const vectorStore = await FaissStore.fromDocuments(docs, embeddings);
-const INDEX_PATH = path.join(DATA_DIR, "faiss_index");
-await vectorStore.save(INDEX_PATH);
+  console.log("Writing to DB...");
+  if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
+  const db = new Database(DB_PATH);
+  createSchema(db);
 
-console.log(`FAISS index saved to ${INDEX_PATH}`);
-// --- FAISS Integration End ---
+  const { caseMemory, openAlerts } = splitAttempts(attempts);
+
+  seedAccounts(db, allAccounts);
+  seedTransactions(db, transactions);
+  seedCaseMemory(db, caseMemory);
+  seedOpenAlerts(db, openAlerts);
+  await seedEmbeddings(db);
 
   db.close();
   console.log(`\nDone.`);
-  console.log(`  Accounts:    ${acctCount}`);
-  console.log(`  Transactions: ${txCount}`);
-  console.log(`  Case memory: ${caseCount}`);
 }
 
 seed().catch(console.error);

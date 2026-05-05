@@ -1,4 +1,5 @@
-import { getAlerts, countAlerts } from "@/lib/db/repositories/alert";
+import { getActiveAlerts, getAlertsByStatus, countActiveAlerts, countAlertsByStatus } from "@/lib/db/repositories/alert";
+import { AlertStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
 
@@ -8,7 +9,19 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status") ?? "open";
   const page = Math.max(0, parseInt(searchParams.get("page") ?? "0"));
-  const alerts = getAlerts(status, PAGE_SIZE, page * PAGE_SIZE);
-  const total = countAlerts(status);
-  return Response.json({ alerts, total, page, pageSize: PAGE_SIZE });
+
+  try {
+    const alerts = status === "active"
+      ? getActiveAlerts(PAGE_SIZE, page * PAGE_SIZE)
+      : getAlertsByStatus(status as AlertStatus, PAGE_SIZE, page * PAGE_SIZE);
+
+    const total = status === "active"
+      ? countActiveAlerts()
+      : countAlertsByStatus(status as AlertStatus);
+
+    return Response.json({ alerts, total, page, pageSize: PAGE_SIZE });
+  } catch (err) {
+    console.error(err);
+    return Response.json({ error: "Failed to fetch alerts" }, { status: 500 });
+  }
 }

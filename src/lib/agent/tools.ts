@@ -1,55 +1,57 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import { CaseDataLoader } from "./loader";
+import { embeddingModel } from "./models";
 
 export function createTools(loader: CaseDataLoader) {
   const getTransactionHistory = tool(
-    async ({ account_id }: { account_id: string }) => {
-      const data = await loader.fetchTransactionHistory(account_id);
+    async ({ accountId }: { accountId: string }) => {
+      const data = await loader.fetchTransactionHistory(accountId);
       return JSON.stringify(data);
     },
     {
       name: "get_transaction_history",
       description: "Retrieves recent transaction history for a given account",
       schema: z.object({
-        account_id: z.string().describe("The account ID to retrieve history for"),
+        accountId: z.string().describe("The account ID to retrieve history for"),
       }),
     }
   );
 
   const computeVelocity = tool(
-    async ({ account_id, window_hours }: { account_id: string; window_hours: number }) => {
-      const data = await loader.fetchVelocity(account_id, window_hours);
+    async ({ accountId, windowHours }: { accountId: string; windowHours: number }) => {
+      const data = await loader.fetchVelocity(accountId, windowHours);
       return JSON.stringify(data);
     },
     {
       name: "compute_velocity",
       description: "Computes transaction frequency and volume for an account over a given time window",
       schema: z.object({
-        account_id: z.string().describe("The account ID to compute velocity for"),
-        window_hours: z.coerce.number().describe("The time window in hours to compute velocity over"),
+        accountId: z.string().describe("The account ID to compute velocity for"),
+        windowHours: z.coerce.number().describe("The time window in hours to compute velocity over"),
       }),
     }
   );
 
   const getCounterpartyHistory = tool(
-    async ({ account_id, counterparty_id }: { account_id: string; counterparty_id: string }) => {
-      const data = await loader.fetchCounterpartyHistory(account_id, counterparty_id);
+    async ({ accountId, counterpartyId }: { accountId: string; counterpartyId: string }) => {
+      const data = await loader.fetchCounterpartyHistory(accountId, counterpartyId);
       return JSON.stringify(data);
     },
     {
       name: "get_counterparty_history",
       description: "Checks whether an account has transacted with a given counterparty before and how frequently",
       schema: z.object({
-        account_id: z.string().describe("The account ID to check"),
-        counterparty_id: z.string().describe("The counterparty account ID to look up"),
+        accountId: z.string().describe("The account ID to check"),
+        counterpartyId: z.string().describe("The counterparty account ID to look up"),
       }),
     }
   );
 
   const findSimilarCases = tool(
     async ({ pattern }: { pattern: string }) => {
-      const data = await loader.findSimilarCases(pattern);
+      const caseEmbeddings = await embeddingModel.embedQuery(pattern);
+      const data = await loader.getSimilarCases(caseEmbeddings);
       return JSON.stringify(data);
     },
     {

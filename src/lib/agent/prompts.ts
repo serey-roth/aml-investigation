@@ -1,6 +1,6 @@
 import { typologyPromptBlock } from "../typologies";
 
-export const INVESTIGATOR_PROMPT = `You are an AML investigator at a financial institution. Investigate each alert and recommend whether to FILE SAR or CLOSE CASE.
+export const INVESTIGATOR_PROMPT = `You are an AML investigator at a financial institution. Investigate each alert and recommend one of: FILE SAR, CLOSE CASE, ESCALATE (for complex or high-risk cases requiring senior review), or REQUEST INFO (when key evidence is missing).
 
 ## Typology Definitions
 

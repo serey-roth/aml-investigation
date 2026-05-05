@@ -1,57 +1,48 @@
 import { getDb } from "../client";
+import { AlertDb } from "../types";
+import { Alert, AlertStatus, ACTIVE_STATUSES } from "@/lib/types";
 
-export interface AlertRow {
-  id: number;
-  account_id: string;
-  typology: string;
-  description: string;
-  status: string;
-  created_at: string;
+function toAlert(row: AlertDb): Alert {
+  return {
+    id: row.id,
+    accountId: row.account_id,
+    typology: row.typology,
+    description: row.description,
+    status: row.status as AlertStatus,
+    createdAt: row.created_at,
+  };
 }
 
-export const ACTIVE_STATUSES = ["open", "escalated", "rfi"] as const;
-export type AlertStatus = "open" | "escalated" | "review" | "closed";
+const ACTIVE_STATUS_LIST = ACTIVE_STATUSES.join("','");
 
-export function getAlerts(status = "open", limit = 25, offset = 0): AlertRow[] {
-  if (status === "active") {
-    return getDb()
-      .prepare(`SELECT * FROM alerts WHERE status IN ('open','escalated','rfi') ORDER BY created_at DESC LIMIT ? OFFSET ?`)
-      .all(limit, offset) as AlertRow[];
-  }
-  return getDb()
-    .prepare("SELECT * FROM alerts WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?")
-    .all(status, limit, offset) as AlertRow[];
+export function getActiveAlerts(limit = 25, offset = 0): Alert[] {
+  const rows = getDb()
+      .prepare(`SELECT * FROM alerts WHERE status IN ('${ACTIVE_STATUS_LIST}') ORDER BY created_at DESC LIMIT ? OFFSET ?`)
+      .all(limit, offset) as AlertDb[];
+    return rows.map(toAlert);
 }
 
-export function countAlerts(status = "open"): number {
-  if (status === "active") {
-    return (getDb().prepare(`SELECT COUNT(*) as n FROM alerts WHERE status IN ('open','escalated','rfi')`).get() as { n: number }).n;
-  }
+export function countActiveAlerts(): number {
+  return (getDb().prepare(`SELECT COUNT(*) as n FROM alerts WHERE status IN ('${ACTIVE_STATUS_LIST}')`).get() as { n: number }).n;
+}
+
+export function countAlertsByStatus(status: AlertStatus): number {
   return (getDb().prepare("SELECT COUNT(*) as n FROM alerts WHERE status = ?").get(status) as { n: number }).n;
 }
 
-export function getAlert(id: number): AlertRow | null {
-  return getDb().prepare("SELECT * FROM alerts WHERE id = ?").get(id) as AlertRow | null;
+export function getAlertsByStatus(status: AlertStatus, limit = 25, offset = 0): Alert[] {
+  const rows = getDb()
+    .prepare("SELECT * FROM alerts WHERE status = ? ORDER BY created_at DESC LIMIT ? OFFSET ?")
+    .all(status, limit, offset) as AlertDb[];
+  return rows.map(toAlert);
 }
 
-export interface AuditEntry {
-  id: number;
-  alert_id: number;
-  actor: string;
-  action: string;
-  detail: string | null;
-  created_at: string;
+export function getAlertById(id: number): Alert | null {
+  const row = getDb().prepare("SELECT * FROM alerts WHERE id = ?").get(id) as AlertDb | null;
+  return row ? toAlert(row) : null;
 }
 
-export function getAuditTrail(alertId: number): AuditEntry[] {
-  return getDb().prepare("SELECT * FROM audit_trail WHERE alert_id = ? ORDER BY created_at ASC").all(alertId) as AuditEntry[];
-}
-
-export function insertAuditEntry(alertId: number, actor: string, action: string, detail: string): void {
-  getDb().prepare("INSERT INTO audit_trail (alert_id, actor, action, detail) VALUES (?, ?, ?, ?)").run(alertId, actor, action, detail);
-}
-
-export function flagAlert(alertId: number, status: "escalated" | "rfi", note: string): void {
+export function updateAlertStatus(alertId: number, status: Extract<AlertStatus, "escalated" | "rfi">, note: string): void {
   const db = getDb();
   db.transaction(() => {
     db.prepare("UPDATE alerts SET status = ? WHERE id = ?").run(status, alertId);
@@ -59,7 +50,7 @@ export function flagAlert(alertId: number, status: "escalated" | "rfi", note: st
   })();
 }
 
-export function decideAlert(alertId: number, outcome: string, note: string, typology: string, description: string, distinguishingFactor: string): void {
+export function closeAlert(alertId: number, outcome: string, note: string, typology: string, description: string, distinguishingFactor: string): void {
   const db = getDb();
   db.transaction(() => {
     db.prepare("UPDATE alerts SET status = 'closed' WHERE id = ?").run(alertId);

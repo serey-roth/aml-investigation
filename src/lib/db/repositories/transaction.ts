@@ -48,3 +48,26 @@ export function getCounterpartyTransactions(accountId: string, counterpartyId: s
     ORDER BY timestamp ASC
   `).all(accountId, counterpartyId, counterpartyId, accountId) as { timestamp: string }[];
 }
+
+export function getGraphEdges(
+  accountIds: string[]
+): { from_account: string; to_account: string; total: number; cnt: number }[] {
+  if (accountIds.length === 0) return [];
+  const placeholders = accountIds.map(() => "?").join(",");
+  return getDb()
+    .prepare(
+      `SELECT from_account, to_account,
+              SUM(amount_paid) as total,
+              COUNT(*) as cnt
+       FROM transactions
+       WHERE (from_account IN (${placeholders}) OR to_account IN (${placeholders}))
+         AND from_account != to_account
+       GROUP BY from_account, to_account`
+    )
+    .all(...accountIds, ...accountIds) as {
+      from_account: string;
+      to_account: string;
+      total: number;
+      cnt: number;
+    }[];
+}

@@ -35,7 +35,15 @@ export default function Page() {
   return (
     <div className="px-8 py-8 max-w-4xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-white mb-4">Alert Queue</h1>
+        <div className="flex items-center justify-between mb-4">
+          <h1 className="text-xl font-semibold text-white">Alert Queue</h1>
+          <button
+            onClick={() => router.push("/analytics")}
+            className="text-xs text-neutral-500 hover:text-neutral-300"
+          >
+            Analytics →
+          </button>
+        </div>
         <div className="flex items-center gap-1">
           {(["active", "closed"] as const).map((t) => (
             <button

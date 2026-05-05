@@ -2,20 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { InvestigationEvent } from "@/lib/types";
+import type { Alert, AuditEntry, InvestigationEvent } from "@/lib/types";
 import { stripTypologyPrefix } from "@/lib/utils";
 import { ToolResult } from "@/app/components/ToolResult";
-import { AuditTrail, AuditEntry, AlertSummary } from "@/app/components/AuditTrail";
+import { AuditTrail } from "@/app/components/AuditTrail";
 import { NetworkGraph } from "@/app/components/NetworkGraph";
 
-interface Alert {
-  id: number;
-  account_id: string;
-  typology: string;
-  description: string;
-  status: string;
-  created_at: string;
-}
 
 type ToolResultStep = {
   type: "tool_result";
@@ -40,7 +32,7 @@ async function* streamInvestigation(alertId: number): AsyncGenerator<Investigati
   const res = await fetch("/api/investigate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ alert_id: alertId }),
+    body: JSON.stringify({ alertId }),
   });
 
   const reader = res.body!.getReader();
@@ -163,8 +155,8 @@ export default function Page() {
     const closes = outcome === "SAR_FILED" || outcome === "NO_FILE";
     setDecided(closes);
     refreshAudit();
+    setActivityOpen(true);
     if (!closes) {
-      // Refresh alert to reflect new status
       fetch(`/api/alerts/${alertId}`).then((r) => r.json()).then(setAlert);
       setNote("");
     }
@@ -188,7 +180,6 @@ export default function Page() {
 
   return (
     <div className="flex flex-col h-screen">
-
       {/* Top bar */}
       <div className="border-b border-neutral-800 px-6 py-3 flex items-center">
         <button onClick={() => router.push("/")} className="text-xs text-neutral-500 hover:text-neutral-300">
@@ -212,7 +203,7 @@ export default function Page() {
       {alert && (
         <div className="border-b border-neutral-800 px-8 py-5">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs text-neutral-400 font-mono">{alert.account_id}</span>
+            <span className="text-xs text-neutral-400 font-mono">{alert.accountId}</span>
             <span className="text-xs bg-neutral-800 text-neutral-400 px-2 py-0.5 rounded">{alert.typology}</span>
             {alert.status === "escalated" && <span className="text-xs bg-amber-900/50 text-amber-400 px-2 py-0.5 rounded">Escalated</span>}
             {alert.status === "rfi" && <span className="text-xs bg-blue-900/50 text-blue-400 px-2 py-0.5 rounded">Awaiting Info</span>}
@@ -227,7 +218,7 @@ export default function Page() {
       {/* Activity drawer */}
       {alert && (
         <AuditTrail
-          alert={alert as AlertSummary}
+          alert={alert}
           entries={auditEntries}
           open={activityOpen}
           onClose={() => setActivityOpen(false)}
@@ -236,7 +227,6 @@ export default function Page() {
 
       {/* Main panels */}
       <div className="flex min-h-0 flex-1 overflow-hidden divide-x divide-neutral-800">
-
         {/* Evidence */}
         <div className="w-1/2 overflow-y-auto px-8 py-6">
           {/* Tab bar */}
@@ -279,7 +269,6 @@ export default function Page() {
         <div className="w-1/2 overflow-y-auto px-8 py-6 flex flex-col">
           <div className="flex-1 space-y-8">
             {errorStep && <p className="text-sm text-red-400">Error: {errorStep.message}</p>}
-
             {(findings || (running && !messageStep)) && (
               <div>
                 <h2 className="text-xs uppercase tracking-widest text-neutral-500 mb-4">Findings</h2>
@@ -289,7 +278,6 @@ export default function Page() {
                 }
               </div>
             )}
-
             {recommendation && (
               <div>
                 <h2 className="text-xs uppercase tracking-widest text-neutral-500 mb-4">Recommendation</h2>
@@ -323,7 +311,6 @@ export default function Page() {
                 placeholder="Document your rationale — required for all actions."
                 className="w-full bg-neutral-900 border border-neutral-800 text-neutral-300 text-xs rounded px-3 py-2 resize-none focus:outline-none focus:border-neutral-600"
               />
-              {/* Primary — terminal actions */}
               <div className="flex gap-2">
                 <button
                   onClick={() => decide("SAR_FILED")}
@@ -340,7 +327,6 @@ export default function Page() {
                   Close
                 </button>
               </div>
-              {/* Secondary — non-terminal actions */}
               <div className="flex gap-2">
                 <button
                   onClick={() => decide("ESCALATED")}

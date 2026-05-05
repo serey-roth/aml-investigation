@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getAlert } from "@/lib/db/repositories/alert";
+import { getAlertById } from "@/lib/db/repositories/alert";
 import { getDb } from "@/lib/db/client";
 
 export const runtime = "nodejs";
@@ -132,8 +132,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const alert = getAlert(parseInt(id));
+  const alert = getAlertById(parseInt(id));
   if (!alert) return Response.json({ error: "Not found" }, { status: 404 });
-  const graph = buildGraph(alert.account_id);
+  const graph = buildGraph(alert.accountId);
   return Response.json(graph);
 }

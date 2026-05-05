@@ -5,14 +5,14 @@ function fmt(n: number) {
 }
 
 export function VelocityCard({ data }: { data: VelocityResult }) {
-  const deviation = Math.round((data.average_amount / data.account_historical_average - 1) * 100);
+  const deviation = Math.round((data.averageAmount / data.accountHistoricalAverage - 1) * 100);
 
   const fields: [string, string | number][] = [
-    ["Transactions", data.transaction_count],
-    ["Window", `${data.window_hours}h`],
-    ["Total", fmt(data.total_amount)],
-    ["Avg per tx", fmt(data.average_amount)],
-    ["Historical avg", fmt(data.account_historical_average)],
+    ["Transactions", data.transactionCount],
+    ["Window", `${data.windowHours}h`],
+    ["Total", fmt(data.totalAmount)],
+    ["Avg per tx", fmt(data.averageAmount)],
+    ["Historical avg", fmt(data.accountHistoricalAverage)],
     ["Deviation", `${deviation}%`],
   ];
 

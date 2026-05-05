@@ -1,31 +1,43 @@
 import { getDb } from "../client";
+import { TransactionDb, TransactionAmountDb } from "../types";
+import { Transaction } from "@/lib/types";
 
-export interface TxRow {
-  timestamp: string;
-  from_account: string;
-  to_account: string;
-  amount_paid: number;
-  payment_currency: string;
-  payment_format: string;
+
+function toTransaction(tx: TransactionDb): Transaction {
+  return {
+    timestamp: tx.timestamp,
+    fromBank: tx.from_bank,
+    fromAccount: tx.from_account,
+    toBank: tx.to_bank,
+    toAccount: tx.to_account,
+    amountPaid: tx.amount_paid,
+    paymentCurrency: tx.payment_currency,
+    amountReceived: tx.amount_received,
+    receivingCurrency: tx.receiving_currency,
+    paymentFormat: tx.payment_format,
+    isLaundering: tx.is_laundering === 1,
+  };
 }
 
-export function getTransactions(accountId: string): TxRow[] {
-  return getDb().prepare<[string, string]>(`
-    SELECT timestamp, from_account, to_account, amount_paid, payment_currency, payment_format
+export function getTransactions(accountId: string): Transaction[] {
+  const rows = getDb().prepare<[string, string]>(`
+    SELECT  *
     FROM transactions
     WHERE from_account = ? OR to_account = ?
     ORDER BY timestamp DESC
     LIMIT 50
-  `).all(accountId, accountId) as TxRow[];
+  `).all(accountId, accountId) as TransactionDb[];
+  return rows.map(toTransaction);
 }
 
-export function getTransactionAmounts(accountId: string): { timestamp: string; amount_paid: number }[] {
-  return getDb().prepare<[string, string]>(`
+export function getTransactionAmounts(accountId: string): { timestamp: string; amountPaid: number }[] {
+  const rows = getDb().prepare<[string, string]>(`
     SELECT timestamp, amount_paid
     FROM transactions
     WHERE from_account = ? OR to_account = ?
     ORDER BY timestamp DESC
-  `).all(accountId, accountId) as { timestamp: string; amount_paid: number }[];
+  `).all(accountId, accountId) as TransactionAmountDb[];
+  return rows.map((r) => ({ timestamp: r.timestamp, amountPaid: r.amount_paid }));
 }
 
 export function getCounterpartyTransactions(accountId: string, counterpartyId: string): { timestamp: string }[] {

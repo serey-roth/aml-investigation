@@ -3,15 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { stripTypologyPrefix } from "@/lib/utils";
-
-interface Alert {
-  id: number;
-  account_id: string;
-  typology: string;
-  description: string;
-  status: string;
-  created_at: string;
-}
+import type { Alert } from "@/lib/types";
 
 export default function Page() {
   const [tab, setTab] = useState<"active" | "closed">("active");
@@ -25,9 +17,11 @@ export default function Page() {
     setAlerts([]);
     fetch(`/api/alerts?status=${tab}&page=${page}`)
       .then((r) => r.json())
-      .then(({ alerts, total }) => {
-        setAlerts(alerts);
-        setTotal(total);
+      .then((data) => {
+        if (data.alerts) {
+          setAlerts(data.alerts);
+          setTotal(data.total);
+        }
       });
   }, [tab, page]);
 
@@ -82,7 +76,7 @@ export default function Page() {
               onClick={() => router.push(`/alerts/${a.id}`)}
               className="border-b border-neutral-900 hover:bg-neutral-900 cursor-pointer"
             >
-              <td className="py-3 pr-6 text-neutral-200 font-mono text-xs">{a.account_id}</td>
+              <td className="py-3 pr-6 text-neutral-200 font-mono text-xs">{a.accountId}</td>
               <td className="py-3 pr-6">
                 <div className="flex items-center gap-2">
                   <span className="text-xs bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded">{a.typology}</span>
@@ -97,7 +91,7 @@ export default function Page() {
               <td className="py-3 pr-6 text-neutral-400 text-xs max-w-xs truncate">
                 {stripTypologyPrefix(a.description, a.typology)}
               </td>
-              <td className="py-3 text-neutral-500 text-xs">{a.created_at}</td>
+              <td className="py-3 text-neutral-500 text-xs">{a.createdAt}</td>
             </tr>
           ))}
           {alerts.length === 0 && (

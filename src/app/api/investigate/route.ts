@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { Investigator } from "@/lib/agent/investigator";
 import { SqliteLoader } from "@/lib/agent/loader";
-import { getAlert, insertAuditEntry } from "@/lib/db/repositories/alert";
+import { getAlertById } from "@/lib/db/repositories/alert";
+import { insertAuditEntry } from "@/lib/db/repositories/audit";
 import { typologyInlineNote } from "@/lib/typologies";
 
 export const runtime = "nodejs";
@@ -9,13 +10,13 @@ export const runtime = "nodejs";
 const investigator = new Investigator(new SqliteLoader());
 
 export async function POST(req: NextRequest) {
-  const { alert_id } = await req.json();
+  const { alertId } = await req.json();
 
-  const alert = getAlert(parseInt(alert_id));
+  const alert = getAlertById(parseInt(alertId));
   if (!alert) return Response.json({ error: "Alert not found" }, { status: 404 });
 
   const typologyNote = typologyInlineNote(alert.typology);
-  const alertText = `Account ${alert.account_id} — Typology: ${alert.typology}\n${typologyNote}\n\n${alert.description}`;
+  const alertText = `Account ${alert.accountId} — Typology: ${alert.typology}\n${typologyNote}\n\n${alert.description}`;
   const encoder = new TextEncoder();
   let messageBuffer = "";
 

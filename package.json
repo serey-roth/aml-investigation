@@ -10,18 +10,17 @@
     "seed": "rm -f src/data/aml.db && npx tsx src/lib/db/seed.ts"
   },
   "dependencies": {
-    "@langchain/community": "^1.1.27",
     "@langchain/core": "^1.1.38",
     "@langchain/langgraph": "^1.2.6",
     "@langchain/ollama": "^1.2.6",
     "@tailwindcss/postcss": "^4.2.2",
     "better-sqlite3": "^12.9.0",
-    "faiss-node": "^0.5.1",
     "langchain": "^1.2.39",
     "next": "^16.2.1",
     "postcss": "^8.5.9",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
+    "sqlite-vec": "^0.1.9",
     "tailwindcss": "^4.2.2",
     "zod": "^4.3.6"
   },

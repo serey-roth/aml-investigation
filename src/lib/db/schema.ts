@@ -1,8 +1,10 @@
 import Database from "better-sqlite3";
+import * as sqliteVec from "sqlite-vec";
 
 export function createSchema(db: Database.Database) {
 
   db.exec('PRAGMA foreign_keys = ON;'); 
+  sqliteVec.load(db);
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS accounts (
@@ -24,7 +26,7 @@ export function createSchema(db: Database.Database) {
       amount_received     REAL,
       receiving_currency  TEXT,
       payment_format      TEXT,
-      is_laundering       INTEGER
+      is_laundering       INTEGER 
     );
 
     CREATE INDEX IF NOT EXISTS idx_tx_from ON transactions(from_account);
@@ -56,6 +58,11 @@ export function createSchema(db: Database.Database) {
       description           TEXT,
       outcome               TEXT,
       distinguishing_factor TEXT
+    );
+
+    CREATE VIRTUAL TABLE IF NOT EXISTS case_embeddings USING vec0(
+      case_id INTEGER PRIMARY KEY,
+      embedding FLOAT[768]
     );
   `);
 }

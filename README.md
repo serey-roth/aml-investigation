@@ -83,7 +83,7 @@ audit_trail   — immutable log of every agent action and analyst decision
 
 ## To-dos
 
-- [ ] **FAISS integration** — embed fraud indicators as feature vectors and use FAISS for both alert detection (flag transactions whose nearest neighbors are predominantly fraudulent) and `find_similar_cases` retrieval (currently keyword-matching with a random fallback)
+- [✅] **FAISS integration** — embed fraud indicators as feature vectors and use FAISS for both alert detection (flag transactions whose nearest neighbors are predominantly fraudulent) and `find_similar_cases` retrieval (currently keyword-matching with a random fallback)
 - [ ] **SAR narrative drafting** — agent generates a draft SAR narrative from `audit_trail` entries for analyst review before filing
 - [ ] **Agent self-correction loop** — add a multi-pass reasoning loop where the agent re-examines earlier conclusions when contradictory evidence is found
 - [ ] **Team workflow simulation** — analyst roles (junior investigates, senior approves SAR filings), case assignment, and peer review requests logged to the audit trail

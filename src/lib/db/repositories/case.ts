@@ -1,26 +1,27 @@
 import { getDb } from "../client";
+import { CaseDb } from "../types";
+import { Case } from "@/lib/types";
 
-export interface CaseRow {
-  id: number;
-  typology: string;
-  description: string;
-  outcome: string;
-  distinguishing_factor: string;
+function toCaseDto(row: CaseDb): Case {
+  return {
+    id: row.id,
+    alertId: row.alert_id,
+    typology: row.typology,
+    description: row.description,
+    outcome: row.outcome,
+    distinguishingFactor: row.distinguishing_factor,
+  };
 }
 
-export function getCasesByTypology(typology: string | null): CaseRow[] {
-  return getDb().prepare<[string | null, string | null]>(`
-    SELECT id, typology, description, outcome, distinguishing_factor
-    FROM case_memory
-    WHERE (? IS NULL OR typology = ?)
-    ORDER BY RANDOM()
-    LIMIT 3
-  `).all(typology, typology) as CaseRow[];
-}
+export function findSimilarCases(vector: number[], k = 3): Case[] {
+  const rows = getDb().prepare(`
+    SELECT c.id, c.alert_id, c.typology, c.description, c.outcome, c.distinguishing_factor
+    FROM case_embeddings ce
+    JOIN case_memory c ON c.id = ce.case_id
+    WHERE ce.embedding MATCH ?
+      AND k = ?
+    ORDER BY ce.distance
+  `).all(JSON.stringify(vector), k) as CaseDb[];
 
-export function getRandomCases(): CaseRow[] {
-  return getDb().prepare(`
-    SELECT id, typology, description, outcome, distinguishing_factor
-    FROM case_memory ORDER BY RANDOM() LIMIT 3
-  `).all() as CaseRow[];
+  return rows.map(toCaseDto);
 }

@@ -19,9 +19,9 @@ export function VelocityCard({ data }: { data: VelocityResult }) {
   return (
     <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
       {fields.map(([label, value]) => (
-        <div key={label} className="bg-neutral-900 rounded px-3 py-2">
+        <div key={label} className="bg-neutral-100 rounded px-3 py-2">
           <div className="text-neutral-500">{label}</div>
-          <div className="text-neutral-100 font-medium mt-0.5">{value}</div>
+          <div className="text-neutral-900 font-medium mt-0.5">{value}</div>
         </div>
       ))}
     </div>

@@ -31,7 +31,7 @@ export function ToolResult({ tool, data }: Props) {
   }
 
   return (
-    <pre className="mt-1 text-xs text-neutral-500 whitespace-pre-wrap">
+    <pre className="mt-1 text-xs text-neutral-400 whitespace-pre-wrap">
       {JSON.stringify(data, null, 2)}
     </pre>
   );

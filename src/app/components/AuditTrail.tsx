@@ -123,12 +123,12 @@ export function AuditTrail({
     <>
       {open && <div className="fixed inset-0 z-20" onClick={onClose} />}
 
-      <div className={`fixed top-0 right-0 h-full w-72 bg-neutral-950 border-l border-neutral-800 z-30 flex flex-col transition-transform duration-200 ${open ? "translate-x-0" : "translate-x-full"}`}>
+      <div className={`fixed top-0 right-0 h-full w-72 bg-white border-l border-neutral-200 z-30 flex flex-col transition-transform duration-200 ${open ? "translate-x-0" : "translate-x-full"}`}>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-800 shrink-0">
-          <span className="text-xs uppercase tracking-widest text-neutral-400 font-medium">Activity</span>
-          <button onClick={onClose} className="text-neutral-600 hover:text-neutral-300 text-xs">✕</button>
+        <div className="flex items-center justify-between px-5 py-3 border-b border-neutral-200 shrink-0">
+          <span className="text-xs uppercase tracking-widest text-neutral-500 font-medium">Activity</span>
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600 text-xs">✕</button>
         </div>
 
         {/* Timeline */}
@@ -137,8 +137,8 @@ export function AuditTrail({
             <div key={group.date}>
               {/* Date divider */}
               <div className="flex items-center gap-2 mb-3">
-                <span className="text-[10px] text-neutral-600 uppercase tracking-wider">{group.date}</span>
-                <div className="flex-1 h-px bg-neutral-800" />
+                <span className="text-[10px] text-neutral-400 uppercase tracking-wider">{group.date}</span>
+                <div className="flex-1 h-px bg-neutral-200" />
               </div>
 
               {/* Events for this date */}
@@ -148,21 +148,21 @@ export function AuditTrail({
                   const dotColor =
                     ev.highlight === "red" ? "bg-red-500" :
                     ev.highlight === "green" ? "bg-emerald-500" :
-                    "bg-neutral-600";
+                    "bg-neutral-300";
 
                   return (
                     <li key={ev.id} className="flex gap-3">
                       {/* Dot + line */}
                       <div className="flex flex-col items-center">
                         <span className={`w-2 h-2 rounded-full shrink-0 mt-1 ${dotColor}`} />
-                        {!isLast && <div className="w-px flex-1 bg-neutral-800 my-1" />}
+                        {!isLast && <div className="w-px flex-1 bg-neutral-200 my-1" />}
                       </div>
 
                       {/* Content */}
                       <div className={`pb-4 min-w-0 ${isLast ? "" : ""}`}>
                         <div className="flex items-center gap-2 mb-0.5">
-                          <span className="text-xs font-medium text-neutral-200">{ev.label}</span>
-                          <span className="text-[10px] text-neutral-600 font-mono ml-auto shrink-0">{formatTimeOnly(ev.timestamp)}</span>
+                          <span className="text-xs font-medium text-neutral-800">{ev.label}</span>
+                          <span className="text-[10px] text-neutral-400 font-mono ml-auto shrink-0">{formatTimeOnly(ev.timestamp)}</span>
                         </div>
                         <p className="text-xs text-neutral-500 leading-relaxed line-clamp-3">{ev.description}</p>
                       </div>

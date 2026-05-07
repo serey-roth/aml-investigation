@@ -94,12 +94,11 @@ export function SARNarrative({ alertId, isDecided }: SARNarrativeProps) {
   }
 
   function renderMarkdown(text: string) {
-    // Minimal bold + line-break rendering without a dependency
     return text.split("\n").map((line, i) => {
       const parts = line.split(/(\*\*[^*]+\*\*)/g).map((part, j) => {
         if (part.startsWith("**") && part.endsWith("**")) {
           return (
-            <strong key={j} className="text-neutral-200 font-semibold">
+            <strong key={j} className="text-neutral-800 font-semibold">
               {part.slice(2, -2)}
             </strong>
           );
@@ -107,7 +106,7 @@ export function SARNarrative({ alertId, isDecided }: SARNarrativeProps) {
         return <span key={j}>{part}</span>;
       });
       return (
-        <p key={i} className={line.startsWith("**") ? "mt-5 mb-1" : "mb-0.5 text-neutral-400 leading-relaxed"}>
+        <p key={i} className={line.startsWith("**") ? "mt-5 mb-1" : "mb-0.5 text-neutral-500 leading-relaxed"}>
           {parts}
         </p>
       );
@@ -116,8 +115,8 @@ export function SARNarrative({ alertId, isDecided }: SARNarrativeProps) {
 
   if (!isDecided) {
     return (
-      <div className="rounded border border-dashed border-neutral-800 p-5 text-center">
-        <p className="text-xs text-neutral-600">
+      <div className="rounded border border-dashed border-neutral-300 p-5 text-center">
+        <p className="text-xs text-neutral-400">
           SAR narrative is available after a decision has been recorded.
         </p>
       </div>
@@ -128,7 +127,7 @@ export function SARNarrative({ alertId, isDecided }: SARNarrativeProps) {
     <div className="space-y-4">
       {/* Header row */}
       <div className="flex items-center justify-between">
-        <h2 className="text-xs uppercase tracking-widest text-neutral-500">
+        <h2 className="text-xs uppercase tracking-widest text-neutral-400">
           SAR Narrative
         </h2>
         <div className="flex items-center gap-2">
@@ -136,19 +135,19 @@ export function SARNarrative({ alertId, isDecided }: SARNarrativeProps) {
             <>
               <button
                 onClick={handleCopy}
-                className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+                className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors"
               >
                 {copied ? "Copied ✓" : "Copy"}
               </button>
               <button
                 onClick={handleDownload}
-                className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+                className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors"
               >
                 Download .txt
               </button>
               <button
                 onClick={startDraft}
-                className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+                className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors"
               >
                 Regenerate
               </button>
@@ -157,7 +156,7 @@ export function SARNarrative({ alertId, isDecided }: SARNarrativeProps) {
           {state === "streaming" && (
             <button
               onClick={handleStop}
-              className="text-xs text-neutral-500 hover:text-neutral-300 transition-colors"
+              className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors"
             >
               Stop
             </button>
@@ -169,7 +168,7 @@ export function SARNarrative({ alertId, isDecided }: SARNarrativeProps) {
       {state === "idle" && (
         <button
           onClick={startDraft}
-          className="w-full rounded border border-neutral-800 py-3 text-xs text-neutral-400 hover:border-neutral-600 hover:text-neutral-200 transition-colors"
+          className="w-full rounded border border-neutral-200 py-3 text-xs text-neutral-500 hover:border-neutral-400 hover:text-neutral-700 transition-colors"
         >
           Draft SAR Narrative
         </button>
@@ -177,20 +176,20 @@ export function SARNarrative({ alertId, isDecided }: SARNarrativeProps) {
 
       {/* Streaming / done content */}
       {(state === "streaming" || state === "done") && (
-        <div className="rounded border border-neutral-800 bg-neutral-950 p-5 text-sm font-mono">
+        <div className="rounded border border-neutral-200 bg-neutral-50 p-5 text-sm font-mono">
           {state === "streaming" && narrative.length === 0 && (
-            <p className="text-xs text-neutral-500 animate-pulse">Generating narrative…</p>
+            <p className="text-xs text-neutral-400 animate-pulse">Generating narrative…</p>
           )}
           {renderMarkdown(narrative)}
           {state === "streaming" && narrative.length > 0 && (
-            <span className="inline-block w-1.5 h-3.5 bg-neutral-500 animate-pulse ml-0.5 align-middle" />
+            <span className="inline-block w-1.5 h-3.5 bg-neutral-400 animate-pulse ml-0.5 align-middle" />
           )}
         </div>
       )}
 
       {/* Error */}
       {state === "error" && (
-        <div className="rounded border border-red-900 bg-red-950/30 p-4 text-xs text-red-400">
+        <div className="rounded border border-red-200 bg-red-50 p-4 text-xs text-red-600">
           {error || "Something went wrong. Please try again."}
           <button
             onClick={startDraft}
@@ -203,7 +202,7 @@ export function SARNarrative({ alertId, isDecided }: SARNarrativeProps) {
 
       {/* Disclaimer */}
       {state === "done" && (
-        <p className="text-xs text-neutral-700">
+        <p className="text-xs text-neutral-400">
           AI-generated draft — review and edit before filing. This does not
           constitute legal or regulatory advice.
         </p>

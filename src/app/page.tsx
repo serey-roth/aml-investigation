@@ -36,10 +36,10 @@ export default function Page() {
     <div className="px-8 py-8 max-w-4xl mx-auto">
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-semibold text-white">Alert Queue</h1>
+          <h1 className="text-xl font-semibold text-neutral-900">Alert Queue</h1>
           <button
             onClick={() => router.push("/analytics")}
-            className="text-xs text-neutral-500 hover:text-neutral-300"
+            className="text-xs text-neutral-400 hover:text-neutral-600"
           >
             Analytics →
           </button>
@@ -50,23 +50,23 @@ export default function Page() {
               key={t}
               onClick={() => switchTab(t)}
               className={`px-3 py-1.5 text-xs rounded capitalize transition-colors ${
-                tab === t ? "bg-neutral-800 text-neutral-200" : "text-neutral-600 hover:text-neutral-400"
+                tab === t ? "bg-neutral-200 text-neutral-800" : "text-neutral-400 hover:text-neutral-600"
               }`}
             >
               {t}
             </button>
           ))}
-          <span className="ml-3 text-xs text-neutral-600">{total} {tab === "active" ? "alerts" : "cases"}</span>
+          <span className="ml-3 text-xs text-neutral-400">{total} {tab === "active" ? "alerts" : "cases"}</span>
         </div>
       </div>
 
       <table className="w-full text-sm">
         <thead>
-          <tr className="text-neutral-500 border-b border-neutral-800 text-left">
+          <tr className="text-neutral-500 border-b border-neutral-200 text-left">
             <th className="py-2 pr-6 font-normal">Account</th>
-            <th className="py-2 pr-6 font-normal">Typology</th>
+            {tab === "closed" && <th className="py-2 pr-6 font-normal">Typology</th>}
             <th className="py-2 pr-6 font-normal">Description</th>
-            <th className="py-2 font-normal">{tab === "active" ? "Flagged" : "Closed"}</th>
+            {tab === "closed" && <th className="py-2 font-normal">Closed</th>}
           </tr>
         </thead>
         <tbody>
@@ -74,29 +74,31 @@ export default function Page() {
             <tr
               key={a.id}
               onClick={() => router.push(`/alerts/${a.id}`)}
-              className="border-b border-neutral-900 hover:bg-neutral-900 cursor-pointer"
+              className="border-b border-neutral-100 hover:bg-neutral-50 cursor-pointer"
             >
-              <td className="py-3 pr-6 text-neutral-200 font-mono text-xs">{a.accountId}</td>
-              <td className="py-3 pr-6">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs bg-neutral-800 text-neutral-300 px-2 py-0.5 rounded">{a.typology}</span>
-                  {a.status === "escalated" && (
-                    <span className="text-xs bg-amber-900/50 text-amber-400 px-2 py-0.5 rounded">Escalated</span>
-                  )}
-                  {a.status === "rfi" && (
-                    <span className="text-xs bg-blue-900/50 text-blue-400 px-2 py-0.5 rounded">Awaiting Info</span>
-                  )}
-                </div>
+              <td className="py-3 pr-6 text-neutral-800 font-mono text-xs">{a.accountId}</td>
+              {tab === "closed" && (
+                <td className="py-3 pr-6">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded">{a.typology}</span>
+                    {a.status === "escalated" && (
+                      <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">Escalated</span>
+                    )}
+                    {a.status === "rfi" && (
+                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Awaiting Info</span>
+                    )}
+                  </div>
+                </td>
+              )}
+              <td className="py-3 pr-6 text-neutral-500 text-xs max-w-xs truncate">
+                {stripTypologyPrefix(a.description, a.typology).replace(/\s*pattern detected:?\s*/i, " ").trimStart()}
               </td>
-              <td className="py-3 pr-6 text-neutral-400 text-xs max-w-xs truncate">
-                {stripTypologyPrefix(a.description, a.typology)}
-              </td>
-              <td className="py-3 text-neutral-500 text-xs">{a.createdAt}</td>
+              {tab === "closed" && <td className="py-3 text-neutral-400 text-xs">{a.createdAt}</td>}
             </tr>
           ))}
           {alerts.length === 0 && (
             <tr>
-              <td colSpan={4} className="py-8 text-center text-xs text-neutral-700">
+              <td colSpan={tab === "active" ? 2 : 4} className="py-8 text-center text-xs text-neutral-400">
                 No {tab} alerts.
               </td>
             </tr>
@@ -109,17 +111,17 @@ export default function Page() {
           <button
             onClick={() => setPage((p) => p - 1)}
             disabled={page === 0}
-            className="text-xs text-neutral-500 hover:text-neutral-300 disabled:text-neutral-800 disabled:cursor-not-allowed"
+            className="text-xs text-neutral-400 hover:text-neutral-600 disabled:text-neutral-300 disabled:cursor-not-allowed"
           >
             ← Previous
           </button>
-          <span className="text-xs text-neutral-600">
+          <span className="text-xs text-neutral-400">
             Page {page + 1} of {totalPages}
           </span>
           <button
             onClick={() => setPage((p) => p + 1)}
             disabled={page >= totalPages - 1}
-            className="text-xs text-neutral-500 hover:text-neutral-300 disabled:text-neutral-800 disabled:cursor-not-allowed"
+            className="text-xs text-neutral-400 hover:text-neutral-600 disabled:text-neutral-300 disabled:cursor-not-allowed"
           >
             Next →
           </button>

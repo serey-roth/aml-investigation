@@ -107,7 +107,7 @@ function Arrow({ id }: { id: string }) {
   return (
     <defs>
       <marker id={id} markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
-        <path d="M0,0 L0,6 L8,3 z" fill="#404040" />
+        <path d="M0,0 L0,6 L8,3 z" fill="#9ca3af" />
       </marker>
     </defs>
   );
@@ -116,11 +116,11 @@ function Arrow({ id }: { id: string }) {
 // ── Distinct empty / error states (comment 3 refactor) ───────────────────
 function EmptyState({ message, sub }: { message: string; sub?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded border border-neutral-800 bg-neutral-950 py-12 text-center"
+    <div className="flex flex-col items-center justify-center rounded border border-neutral-200 bg-neutral-50 py-12 text-center"
       style={{ minHeight: 200 }}>
-      <div className="text-2xl mb-2 text-neutral-700">⬡</div>
-      <p className="text-sm text-neutral-400">{message}</p>
-      {sub && <p className="text-xs text-neutral-600 mt-1">{sub}</p>}
+      <div className="text-2xl mb-2 text-neutral-300">⬡</div>
+      <p className="text-sm text-neutral-500">{message}</p>
+      {sub && <p className="text-xs text-neutral-400 mt-1">{sub}</p>}
     </div>
   );
 }
@@ -188,7 +188,7 @@ export function NetworkGraph({ alertId }: { alertId: number }) {
       });
   }, [alertId]);
 
-  if (loading) return <p className="text-xs text-neutral-600 py-4">Loading graph data…</p>;
+  if (loading) return <p className="text-xs text-neutral-400 py-4">Loading graph data…</p>;
 
   if (error) return (
     <EmptyState
@@ -204,7 +204,7 @@ export function NetworkGraph({ alertId }: { alertId: number }) {
     />
   );
 
-  if (!layoutReady) return <p className="text-xs text-neutral-600 py-4">Building graph…</p>;
+  if (!layoutReady) return <p className="text-xs text-neutral-400 py-4">Building graph…</p>;
 
   const markerId = `arrow-head-${alertId}`;
 
@@ -220,7 +220,7 @@ export function NetworkGraph({ alertId }: { alertId: number }) {
     <div>
       {/* Truncation warning banner (comment 3) */}
       {truncated && (
-        <div className="mb-2 rounded border border-amber-800 bg-amber-950/40 px-3 py-2 text-xs text-amber-400">
+        <div className="mb-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-700">
           Graph capped at {MAX_NODES} nodes to keep the browser responsive.
           The server already limits hop-1 to 20 and hop-2 to 5 per node — this
           account has unusually high connectivity.
@@ -230,7 +230,7 @@ export function NetworkGraph({ alertId }: { alertId: number }) {
       <svg
         viewBox={`0 0 ${W} ${H}`}
         width="100%"
-        className="rounded border border-neutral-800 bg-neutral-950"
+        className="rounded border border-neutral-200 bg-neutral-50"
         style={{ maxHeight: 380 }}
       >
         <Arrow id={markerId} />
@@ -258,7 +258,7 @@ export function NetworkGraph({ alertId }: { alertId: number }) {
               y1={ps.y}
               x2={trimX}
               y2={trimY}
-              stroke={isHighlighted ? "#6366f1" : "#2a2a2a"}
+              stroke={isHighlighted ? "#6366f1" : "#d1d5db"}
               strokeWidth={isHighlighted ? 2 : 1}
               markerEnd={`url(#${markerId})`}
             />
@@ -280,13 +280,13 @@ export function NetworkGraph({ alertId }: { alertId: number }) {
             ? "#6366f1"
             : isConnectedToHovered
             ? "#4f46e5"
-            : "#262626";
+            : "#e5e7eb";
 
           const stroke = n.isFocus
             ? "#ef4444"
             : isHovered
             ? "#818cf8"
-            : "#404040";
+            : "#9ca3af";
 
           return (
             <g
@@ -302,7 +302,7 @@ export function NetworkGraph({ alertId }: { alertId: number }) {
                   y={p.y - r - 4}
                   textAnchor="middle"
                   fontSize={9}
-                  fill={n.isFocus ? "#ef4444" : "#a3a3a3"}
+                  fill={n.isFocus ? "#ef4444" : "#525252"}
                   fontFamily="monospace"
                 >
                   {n.label}
@@ -314,12 +314,12 @@ export function NetworkGraph({ alertId }: { alertId: number }) {
       </svg>
 
       {hovered && (
-        <div className="mt-2 text-xs text-neutral-400 space-y-1">
-          <span className="font-mono text-neutral-200">{hovered}</span>
+        <div className="mt-2 text-xs text-neutral-500 space-y-1">
+          <span className="font-mono text-neutral-800">{hovered}</span>
           {hoveredEdges.length > 0 && (
             <div className="space-y-0.5 mt-1">
               {hoveredEdges.slice(0, 5).map((e, i) => (
-                <div key={i} className="flex gap-2 text-neutral-500">
+                <div key={i} className="flex gap-2 text-neutral-400">
                   <span className="font-mono">{e.source}</span>
                   <span>→</span>
                   <span className="font-mono">{e.target}</span>
@@ -327,19 +327,19 @@ export function NetworkGraph({ alertId }: { alertId: number }) {
                 </div>
               ))}
               {hoveredEdges.length > 5 && (
-                <div className="text-neutral-600">+{hoveredEdges.length - 5} more</div>
+                <div className="text-neutral-400">+{hoveredEdges.length - 5} more</div>
               )}
             </div>
           )}
         </div>
       )}
 
-      <div className="mt-3 flex items-center gap-4 text-[10px] text-neutral-600">
+      <div className="mt-3 flex items-center gap-4 text-[10px] text-neutral-400">
         <span className="flex items-center gap-1">
           <span className="inline-block w-2.5 h-2.5 rounded-full bg-red-600" /> Focus account
         </span>
         <span className="flex items-center gap-1">
-          <span className="inline-block w-2.5 h-2.5 rounded-full bg-neutral-700" /> Counterparty
+          <span className="inline-block w-2.5 h-2.5 rounded-full bg-neutral-300" /> Counterparty
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block w-2.5 h-2.5 rounded-full bg-indigo-500" /> Highlighted

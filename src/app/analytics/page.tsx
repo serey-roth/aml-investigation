@@ -18,7 +18,7 @@ function fmtMs(ms: number) {
 function Bar({ value, max, color }: { value: number; max: number; color: string }) {
   const pctWidth = max > 0 ? (value / max) * 100 : 0;
   return (
-    <div className="h-1.5 w-full bg-neutral-800 rounded-full overflow-hidden">
+    <div className="h-1.5 w-full bg-neutral-200 rounded-full overflow-hidden">
       <div className={`h-full rounded-full ${color}`} style={{ width: `${pctWidth}%` }} />
     </div>
   );
@@ -26,23 +26,22 @@ function Bar({ value, max, color }: { value: number; max: number; color: string 
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="bg-neutral-900 rounded px-4 py-3 border border-neutral-800">
-      <div className="text-xs text-neutral-500 mb-1">{label}</div>
-      <div className="text-xl font-semibold text-neutral-100">{value}</div>
-      {sub && <div className="text-xs text-neutral-600 mt-0.5">{sub}</div>}
+    <div className="bg-neutral-50 rounded px-4 py-3 border border-neutral-200">
+      <div className="text-xs text-neutral-400 mb-1">{label}</div>
+      <div className="text-xl font-semibold text-neutral-900">{value}</div>
+      {sub && <div className="text-xs text-neutral-400 mt-0.5">{sub}</div>}
     </div>
   );
 }
 
 function RateCell({ value, invert = false }: { value: number; invert?: boolean }) {
-  // invert=true means higher is worse (e.g. false-positive rate)
   const pctVal = value * 100;
   const color =
     pctVal === 0
-      ? "text-neutral-500"
+      ? "text-neutral-400"
       : invert
-      ? pctVal > 70 ? "text-red-400" : pctVal > 40 ? "text-amber-400" : "text-emerald-400"
-      : pctVal > 70 ? "text-emerald-400" : pctVal > 40 ? "text-amber-400" : "text-red-400";
+      ? pctVal > 70 ? "text-red-600" : pctVal > 40 ? "text-amber-600" : "text-emerald-600"
+      : pctVal > 70 ? "text-emerald-600" : pctVal > 40 ? "text-amber-600" : "text-red-600";
   return <span className={`font-mono text-xs ${color}`}>{pct(value)}</span>;
 }
 
@@ -61,7 +60,7 @@ export default function AnalyticsPage() {
   if (loading) {
     return (
       <div className="px-8 py-8 max-w-4xl mx-auto">
-        <p className="text-xs text-neutral-600">Loading analytics…</p>
+        <p className="text-xs text-neutral-400">Loading analytics…</p>
       </div>
     );
   }
@@ -69,7 +68,7 @@ export default function AnalyticsPage() {
   if (!data) {
     return (
       <div className="px-8 py-8 max-w-4xl mx-auto">
-        <p className="text-xs text-red-400">Failed to load analytics.</p>
+        <p className="text-xs text-red-600">Failed to load analytics.</p>
       </div>
     );
   }
@@ -82,11 +81,11 @@ export default function AnalyticsPage() {
       <div className="mb-6 flex items-center gap-4">
         <button
           onClick={() => router.push("/")}
-          className="text-xs text-neutral-500 hover:text-neutral-300"
+          className="text-xs text-neutral-400 hover:text-neutral-600"
         >
           ← Queue
         </button>
-        <h1 className="text-xl font-semibold text-white">Analytics</h1>
+        <h1 className="text-xl font-semibold text-neutral-900">Analytics</h1>
       </div>
 
       {/* Top-line stats */}
@@ -103,7 +102,7 @@ export default function AnalyticsPage() {
 
       {/* Overall quality scores */}
       <div className="mb-8">
-        <h2 className="text-xs uppercase tracking-widest text-neutral-500 mb-4">Overall Quality</h2>
+        <h2 className="text-xs uppercase tracking-widest text-neutral-400 mb-4">Overall Quality</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <StatCard
             label="Agent–Analyst Agreement"
@@ -125,17 +124,17 @@ export default function AnalyticsPage() {
 
       {/* Per-typology breakdown */}
       <div>
-        <h2 className="text-xs uppercase tracking-widest text-neutral-500 mb-4">
+        <h2 className="text-xs uppercase tracking-widest text-neutral-400 mb-4">
           Breakdown by Typology
         </h2>
 
         {data.totalClosed === 0 ? (
-          <p className="text-xs text-neutral-600">No closed cases yet.</p>
+          <p className="text-xs text-neutral-400">No closed cases yet.</p>
         ) : (
-          <div className="rounded border border-neutral-800 overflow-hidden">
+          <div className="rounded border border-neutral-200 overflow-hidden">
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b border-neutral-800 text-neutral-500">
+                <tr className="border-b border-neutral-200 text-neutral-400">
                   <th className="text-left py-2.5 px-4 font-normal">Typology</th>
                   <th className="text-left py-2.5 px-4 font-normal">Alerts</th>
                   <th className="text-left py-2.5 px-4 font-normal">SAR Filed</th>
@@ -148,21 +147,21 @@ export default function AnalyticsPage() {
                 {data.byTypology.map((row: TypologyStats) => {
                   const closedCount = row.sarFiled + row.noFile;
                   return (
-                    <tr key={row.typology} className="border-b border-neutral-900 hover:bg-neutral-900/50">
+                    <tr key={row.typology} className="border-b border-neutral-100 hover:bg-neutral-50">
                       <td className="py-3 px-4">
-                        <div className="font-medium text-neutral-200 mb-1">{row.typology}</div>
-                        <Bar value={row.total} max={maxTotal} color="bg-indigo-600" />
+                        <div className="font-medium text-neutral-800 mb-1">{row.typology}</div>
+                        <Bar value={row.total} max={maxTotal} color="bg-indigo-500" />
                       </td>
-                      <td className="py-3 px-4 text-neutral-300">
+                      <td className="py-3 px-4 text-neutral-700">
                         {row.total}
                         {closedCount > 0 && (
-                          <span className="text-neutral-600 ml-1">({closedCount} closed)</span>
+                          <span className="text-neutral-400 ml-1">({closedCount} closed)</span>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-neutral-300">
+                      <td className="py-3 px-4 text-neutral-700">
                         {row.sarFiled}
                         {closedCount > 0 && (
-                          <span className="text-neutral-600 ml-1">
+                          <span className="text-neutral-400 ml-1">
                             ({pct(row.sarFiled / closedCount)})
                           </span>
                         )}
@@ -171,22 +170,22 @@ export default function AnalyticsPage() {
                         {closedCount > 0 ? (
                           <RateCell value={row.falsePositiveRate} invert />
                         ) : (
-                          <span className="text-neutral-600">—</span>
+                          <span className="text-neutral-400">—</span>
                         )}
                       </td>
                       <td className="py-3 px-4">
                         {row.agentTotalCount > 0 ? (
                           <div>
                             <RateCell value={row.agreementRate} />
-                            <div className="text-neutral-600 mt-0.5">
+                            <div className="text-neutral-400 mt-0.5">
                               {row.agentMatchCount}/{row.agentTotalCount} cases
                             </div>
                           </div>
                         ) : (
-                          <span className="text-neutral-600">—</span>
+                          <span className="text-neutral-400">—</span>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-neutral-400 font-mono">
+                      <td className="py-3 px-4 text-neutral-500 font-mono">
                         {fmtMs(row.avgDecisionMs)}
                       </td>
                     </tr>
@@ -198,15 +197,15 @@ export default function AnalyticsPage() {
         )}
 
         {/* Explanation footnote */}
-        <div className="mt-4 text-[10px] text-neutral-700 space-y-0.5">
+        <div className="mt-4 text-[10px] text-neutral-400 space-y-0.5">
           <p>
-            <strong className="text-neutral-600">Agreement:</strong> % of closed cases where the agent's recommendation (FILE SAR / CLOSE CASE) matched the analyst's final decision.
+            <strong className="text-neutral-500">Agreement:</strong> % of closed cases where the agent's recommendation (FILE SAR / CLOSE CASE) matched the analyst's final decision.
           </p>
           <p>
-            <strong className="text-neutral-600">False+ Rate:</strong> % of closed cases where no SAR was filed (alert was a false positive).
+            <strong className="text-neutral-500">False+ Rate:</strong> % of closed cases where no SAR was filed (alert was a false positive).
           </p>
           <p>
-            <strong className="text-neutral-600">Avg Latency:</strong> mean time between agent completing its recommendation and the analyst making a decision.
+            <strong className="text-neutral-500">Avg Latency:</strong> mean time between agent completing its recommendation and the analyst making a decision.
           </p>
         </div>
       </div>

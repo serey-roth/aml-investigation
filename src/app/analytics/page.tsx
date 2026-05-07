@@ -83,7 +83,7 @@ export default function AnalyticsPage() {
           onClick={() => router.push("/")}
           className="text-xs text-neutral-400 hover:text-neutral-600"
         >
-          ← Queue
+          ← Alerts
         </button>
         <h1 className="text-xl font-semibold text-neutral-900">Analytics</h1>
       </div>

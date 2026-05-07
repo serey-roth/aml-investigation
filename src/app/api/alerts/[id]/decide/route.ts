@@ -12,14 +12,14 @@ const FLAG_OUTCOMES: Record<string, "escalated" | "rfi"> = {
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const alertId = parseInt(id);
-  const { outcome, note, recommendation } = await req.json();
+  const { outcome, note, recommendation, snapshot } = await req.json();
 
   const alert = getAlertById(alertId);
   if (!alert) return Response.json({ error: "Not found" }, { status: 404 });
   if (alert.status === "closed") return Response.json({ error: "Alert already closed" }, { status: 409 });
 
   if (CLOSING_OUTCOMES.includes(outcome)) {
-    closeAlert(alertId, outcome, note ?? "", alert.typology, alert.description, recommendation ?? "");
+    closeAlert(alertId, outcome, note ?? "", alert.typology, alert.description, recommendation ?? "", snapshot ?? null);
   } else if (FLAG_OUTCOMES[outcome]) {
     updateAlertStatus(alertId, FLAG_OUTCOMES[outcome], note ?? "");
   } else {

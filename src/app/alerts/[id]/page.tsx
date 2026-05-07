@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import type { Alert, AuditEntry, InvestigationEvent } from "@/lib/types";
-import { stripTypologyPrefix } from "@/lib/utils";
+import type { Alert, AuditEntry, InvestigationEvent, InvestigationSnapshot } from "@/lib/types";
 import { ToolResult } from "@/app/components/ToolResult";
 import { AuditTrail } from "@/app/components/AuditTrail";
 import { NetworkGraph } from "@/app/components/NetworkGraph";
@@ -92,6 +91,7 @@ export default function Page() {
 
   const [alert, setAlert] = useState<Alert | null>(null);
   const [steps, setSteps] = useState<Step[]>([]);
+  const [snapshot, setSnapshot] = useState<InvestigationSnapshot | null>(null);
   const [running, setRunning] = useState(false);
   const [evidenceTab, setEvidenceTab] = useState<"evidence" | "graph">("evidence");
   const [decided, setDecided] = useState(false);
@@ -116,7 +116,13 @@ export default function Page() {
       .then((r) => r.json())
       .then((a: Alert) => {
         setAlert(a);
-        if (a.status === "open") run();
+        if (a.status === "closed") {
+          fetch(`/api/alerts/${alertId}/snapshot`)
+            .then((r) => r.json())
+            .then((s: InvestigationSnapshot | null) => setSnapshot(s));
+        } else if (a.status === "open") {
+          run();
+        }
       });
     refreshAudit();
   }, [alertId]);
@@ -154,13 +160,17 @@ export default function Page() {
 
   const decide = async (outcome: "SAR_FILED" | "NO_FILE" | "ESCALATED" | "RFI") => {
     const messageStep = steps.find((s): s is { type: "message"; content: string } => s.type === "message");
+    const closes = outcome === "SAR_FILED" || outcome === "NO_FILE";
+    const snap: InvestigationSnapshot | null = closes
+      ? { toolResults: toolResults.map((s) => ({ tool: s.tool, data: s.data })), message: messageStep?.content ?? "" }
+      : null;
     await fetch(`/api/alerts/${alertId}/decide`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ outcome, note, recommendation: messageStep?.content ?? "" }),
+      body: JSON.stringify({ outcome, note, recommendation: messageStep?.content ?? "", snapshot: snap }),
     });
-    const closes = outcome === "SAR_FILED" || outcome === "NO_FILE";
     setDecided(closes);
+    if (closes && snap) setSnapshot(snap);
     refreshAudit();
     setActivityOpen(true);
     fetch(`/api/alerts/${alertId}`).then((r) => r.json()).then(setAlert);
@@ -170,17 +180,19 @@ export default function Page() {
   };
 
   const TOOL_ORDER = ["compute_velocity", "get_counterparty_history", "find_similar_cases", "get_transaction_history"];
-  const toolResults = steps
+  const liveToolResults = steps
     .filter((s): s is ToolResultStep => s.type === "tool_result")
     .sort((a, b) => {
       const ai = TOOL_ORDER.indexOf(a.tool);
       const bi = TOOL_ORDER.indexOf(b.tool);
       return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
     });
+  const toolResults = isDecided && snapshot ? snapshot.toolResults : liveToolResults;
   const messageStep = steps.find((s): s is { type: "message"; content: string } => s.type === "message");
+  const activeMessage = isDecided && snapshot ? snapshot.message : (messageStep?.content ?? null);
   const errorStep = steps.find((s): s is { type: "error"; message: string } => s.type === "error");
-  const { findings, recommendation, verdict } = messageStep
-    ? splitReasoning(messageStep.content)
+  const { findings, recommendation, verdict } = activeMessage
+    ? splitReasoning(activeMessage)
     : { findings: null, recommendation: null, verdict: null };
 
   const canDecide = !running && !!messageStep && !decided && alert?.status !== "closed";
@@ -190,7 +202,7 @@ export default function Page() {
       {/* Top bar */}
       <div className="border-b border-neutral-200 px-6 py-3 flex items-center">
         <button onClick={() => router.push("/")} className="text-xs text-neutral-400 hover:text-neutral-600">
-          ← Queue
+          ← Alerts
         </button>
         <div className="ml-auto flex items-center gap-4">
           {!running && messageStep && alert?.status === "open" && !decided && (
@@ -216,7 +228,7 @@ export default function Page() {
             {alert.status === "closed" && <span className="text-xs text-neutral-400 px-2 py-0.5 rounded border border-neutral-200">Closed</span>}
           </div>
           <p className="text-sm text-neutral-700 leading-relaxed">
-            {stripTypologyPrefix(alert.description, alert.typology).replace(/\s*pattern detected:?\s*/i, " ").trimStart()}
+            {alert.description}
           </p>
         </div>
       )}
@@ -263,6 +275,9 @@ export default function Page() {
               {running && toolResults.length === 0 && (
                 <p className="text-xs text-neutral-400">Gathering evidence…</p>
               )}
+              {!running && isDecided && toolResults.length === 0 && (
+                <p className="text-xs text-neutral-400">No investigation snapshot recorded for this case.</p>
+              )}
             </div>
           )}
 
@@ -305,7 +320,7 @@ export default function Page() {
           {/* Decision bar */}
           {decided ? (
             <div className="mt-8 pt-6 border-t border-neutral-200">
-              <p className="text-xs text-neutral-400">Case closed. <button onClick={() => router.push("/")} className="text-neutral-600 hover:text-neutral-800 underline">Back to queue</button></p>
+              <p className="text-xs text-neutral-400">Case closed. <button onClick={() => router.push("/")} className="text-neutral-600 hover:text-neutral-800 underline">Back to Alerts</button></p>
             </div>
           ) : canDecide ? (
             <div className="mt-8 pt-6 border-t border-neutral-200 space-y-3">

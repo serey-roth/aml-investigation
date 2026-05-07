@@ -54,10 +54,11 @@ npm run dev    # http://localhost:3000
 src/
 ├── app/
 │   ├── page.tsx                      # Alert queue (active / closed, paginated)
+│   ├── analytics/page.tsx            # Decision stats by typology
 │   ├── alerts/[id]/page.tsx          # Investigation view + decision panel
 │   └── api/
 │       ├── investigate/route.ts      # Streams agent events via SSE
-│       └── alerts/                   # CRUD, audit, and decide endpoints
+│       └── alerts/                   # CRUD, audit, decide, snapshot endpoints
 └── lib/
     ├── agent/
     │   ├── investigator.ts           # Agent class and streaming interface
@@ -74,16 +75,17 @@ src/
 ## Database schema
 
 ```text
-accounts      — account and bank metadata
-transactions  — full transaction records
-alerts        — flagged accounts: typology, description, status
-case_memory   — closed cases: outcome (SAR_FILED / NO_FILE), distinguishing factors
-audit_trail   — immutable log of every agent action and analyst decision
+accounts                  — account and bank metadata
+transactions              — full transaction records
+alerts                    — flagged accounts: typology, description, status, closed_at
+case_memory               — closed cases: outcome (SAR_FILED / NO_FILE), distinguishing factors
+audit_trail               — immutable log of every agent action and analyst decision
+investigation_snapshots   — tool results and agent message saved at case close
 ```
 
 ## To-dos
 
-- [✅] **FAISS integration** — embed fraud indicators as feature vectors and use FAISS for both alert detection (flag transactions whose nearest neighbors are predominantly fraudulent) and `find_similar_cases` retrieval (currently keyword-matching with a random fallback)
-- [ ] **SAR narrative drafting** — agent generates a draft SAR narrative from `audit_trail` entries for analyst review before filing
+- [✅] **Embedding-based retrieval** — embed case memory entries and use vector search for `find_similar_cases`
+- [✅] **SAR narrative drafting** — agent generates a draft FinCEN SAR narrative from audit trail entries for analyst review before filing
 - [ ] **Agent self-correction loop** — add a multi-pass reasoning loop where the agent re-examines earlier conclusions when contradictory evidence is found
 - [ ] **Team workflow simulation** — analyst roles (junior investigates, senior approves SAR filings), case assignment, and peer review requests logged to the audit trail

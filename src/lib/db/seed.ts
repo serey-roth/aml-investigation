@@ -185,7 +185,7 @@ function seedOpenAlerts(db: Database.Database, attempts: LaunderingAttempt[]): v
     for (const attempt of attempts) {
       if (seenTypologies.has(attempt.typology)) continue;
       seenTypologies.add(attempt.typology);
-      insert.run({ account_id: [...attempt.accounts][0], typology: attempt.typology, description: `${attempt.typology} pattern detected: ${attempt.accounts.size} accounts involved, ${attempt.transactionCount} transactions flagged`, status: "open" });
+      insert.run({ account_id: [...attempt.accounts][0], typology: attempt.typology, description: `${attempt.typology}: ${attempt.accounts.size} accounts involved, ${attempt.transactionCount} transactions flagged`, status: "open" });
     }
   })();
 }

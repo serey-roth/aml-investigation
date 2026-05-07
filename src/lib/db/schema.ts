@@ -39,7 +39,8 @@ export function createSchema(db: Database.Database) {
       typology    TEXT,
       description TEXT,
       status      TEXT DEFAULT 'open',
-      created_at  TEXT DEFAULT (datetime('now'))
+      created_at  TEXT DEFAULT (datetime('now')),
+      closed_at   TEXT
     );
 
     CREATE TABLE IF NOT EXISTS audit_trail (
@@ -58,6 +59,12 @@ export function createSchema(db: Database.Database) {
       description           TEXT,
       outcome               TEXT,
       distinguishing_factor TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS investigation_snapshots (
+      alert_id     INTEGER PRIMARY KEY REFERENCES alerts(id),
+      tool_results TEXT NOT NULL,
+      message      TEXT NOT NULL
     );
 
     CREATE VIRTUAL TABLE IF NOT EXISTS case_embeddings USING vec0(

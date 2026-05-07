@@ -164,17 +164,31 @@ function seedTransactions(db: Database.Database, transactions: TransactionDb[]):
 }
 
 function seedCaseMemory(db: Database.Database, attempts: LaunderingAttempt[]): void {
-  const insertAlert = db.prepare(`INSERT INTO alerts (account_id, typology, description, status) VALUES (@account_id, @typology, @description, @status)`);
+  const insertAlert = db.prepare(`INSERT INTO alerts (account_id, typology, description, status, created_at, closed_at) VALUES (@account_id, @typology, @description, @status, @created_at, @closed_at)`);
   const insertCase = db.prepare(`INSERT INTO case_memory (alert_id, typology, description, outcome, distinguishing_factor) VALUES (@alert_id, @typology, @description, @outcome, @distinguishing_factor)`);
+  const insertAudit = db.prepare(`INSERT INTO audit_trail (alert_id, actor, action, detail, created_at) VALUES (?, 'analyst', 'decision', ?, ?)`);
+
+  // Spread seeded closed cases over the past 90 days for realistic sorting.
+  // created_at is 1–7 days before closed_at to simulate investigation time.
+  const now = Date.now();
+  const ninetyDays = 90 * 24 * 60 * 60 * 1000;
+
+  const toSqlite = (ms: number) =>
+    new Date(ms).toISOString().replace("T", " ").slice(0, 19);
 
   db.transaction(() => {
-    for (const attempt of attempts) {
+    attempts.forEach((attempt, i) => {
       const primaryAccount = [...attempt.accounts][0];
-      const description = `${attempt.typology} pattern involving ${attempt.accounts.size} accounts and ${attempt.transactionCount} transactions`;
+      const description = `${attempt.accounts.size} accounts involved, ${attempt.transactionCount} transactions flagged`;
       const typology = getTypologyDefinition(attempt.typology);
-      const alertResult = insertAlert.run({ account_id: primaryAccount, typology: attempt.typology, description, status: "closed" });
-      insertCase.run({ alert_id: alertResult.lastInsertRowid, typology: attempt.typology, description, outcome: "SAR_FILED", distinguishing_factor: typology?.amlSignificance ?? "Suspicious transaction pattern detected" });
-    }
+      const closedAt = now - (ninetyDays * (1 - i / attempts.length));
+      const investigationDays = (1 + (i % 7)) * 24 * 60 * 60 * 1000;
+      const createdAt = closedAt - investigationDays;
+      const alertResult = insertAlert.run({ account_id: primaryAccount, typology: attempt.typology, description, status: "closed", created_at: toSqlite(createdAt), closed_at: toSqlite(closedAt) });
+      const alertId = alertResult.lastInsertRowid;
+      insertCase.run({ alert_id: alertId, typology: attempt.typology, description, outcome: "SAR_FILED", distinguishing_factor: typology?.amlSignificance ?? "Suspicious transaction pattern detected" });
+      insertAudit.run(alertId, JSON.stringify({ outcome: "SAR_FILED", note: "Seeded case" }), toSqlite(closedAt));
+    });
   })();
 }
 
@@ -185,7 +199,7 @@ function seedOpenAlerts(db: Database.Database, attempts: LaunderingAttempt[]): v
     for (const attempt of attempts) {
       if (seenTypologies.has(attempt.typology)) continue;
       seenTypologies.add(attempt.typology);
-      insert.run({ account_id: [...attempt.accounts][0], typology: attempt.typology, description: `${attempt.typology}: ${attempt.accounts.size} accounts involved, ${attempt.transactionCount} transactions flagged`, status: "open" });
+      insert.run({ account_id: [...attempt.accounts][0], typology: attempt.typology, description: `${attempt.accounts.size} accounts involved, ${attempt.transactionCount} transactions flagged`, status: "open" });
     }
   })();
 }
@@ -215,7 +229,7 @@ async function seed() {
   console.log(`Accounts involved in laundering: ${accountsInLaundering.size}`);
 
   console.log("Parsing accounts file...");
-  const { launderingAccounts, allAccounts } = await parseAccountCsv("HI-Small_accounts.csv", (accountId) => accountsInLaundering.has(accountId))
+  const { allAccounts } = await parseAccountCsv("HI-Small_accounts.csv", (accountId) => accountsInLaundering.has(accountId))
   console.log(`Total accounts: ${allAccounts.length}`);
 
   console.log("Parsing transactions file...");

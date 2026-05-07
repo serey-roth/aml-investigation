@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Alert } from "@/lib/types";
+import { TYPOLOGIES } from "@/lib/typologies";
 
 export default function Page() {
   const [tab, setTab] = useState<"active" | "closed">("active");
@@ -80,7 +81,7 @@ export default function Page() {
               {tab === "closed" && (
                 <td className="py-3 pr-6">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded">{a.typology}</span>
+                    <span className="text-xs bg-neutral-100 text-neutral-700 px-2 py-0.5 rounded" title={TYPOLOGIES[a.typology]?.description}>{a.typology}</span>
                     {a.status === "escalated" && (
                       <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded">Escalated</span>
                     )}

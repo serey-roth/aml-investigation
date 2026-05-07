@@ -87,5 +87,6 @@ investigation_snapshots   — tool results and agent message saved at case close
 
 - [✅] **Embedding-based retrieval** — embed case memory entries and use vector search for `find_similar_cases`
 - [✅] **SAR narrative drafting** — agent generates a draft FinCEN SAR narrative from audit trail entries for analyst review before filing
+- [ ] **GraphRAG for case retrieval** — traverse the transaction network to retrieve past cases connected through shared accounts and counterparties, replacing text similarity with relational context
 - [ ] **Agent self-correction loop** — add a multi-pass reasoning loop where the agent re-examines earlier conclusions when contradictory evidence is found
 - [ ] **Team workflow simulation** — analyst roles (junior investigates, senior approves SAR filings), case assignment, and peer review requests logged to the audit trail

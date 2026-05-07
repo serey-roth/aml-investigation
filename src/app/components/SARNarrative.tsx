@@ -4,13 +4,11 @@ import { useState, useRef } from "react";
 
 interface SARNarrativeProps {
   alertId: number;
-  /** Only allow drafting when the alert has a decision recorded */
-  isDecided: boolean;
 }
 
 type DraftState = "idle" | "streaming" | "done" | "error";
 
-export function SARNarrative({ alertId, isDecided }: SARNarrativeProps) {
+export function SARNarrative({ alertId }: SARNarrativeProps) {
   const [state, setState] = useState<DraftState>("idle");
   const [narrative, setNarrative] = useState("");
   const [error, setError] = useState("");
@@ -113,16 +111,6 @@ export function SARNarrative({ alertId, isDecided }: SARNarrativeProps) {
     });
   }
 
-  if (!isDecided) {
-    return (
-      <div className="rounded border border-dashed border-neutral-300 p-5 text-center">
-        <p className="text-xs text-neutral-400">
-          SAR narrative is available after a decision has been recorded.
-        </p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
       {/* Header row */}
@@ -170,7 +158,7 @@ export function SARNarrative({ alertId, isDecided }: SARNarrativeProps) {
           onClick={startDraft}
           className="w-full rounded border border-neutral-200 py-3 text-xs text-neutral-500 hover:border-neutral-400 hover:text-neutral-700 transition-colors"
         >
-          Draft SAR Narrative
+          Draft FinCEN SAR narrative
         </button>
       )}
 

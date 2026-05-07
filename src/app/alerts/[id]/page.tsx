@@ -101,6 +101,11 @@ export default function Page() {
   const tokenBufferRef = useRef("");
   const runningRef = useRef(false);
   const isDecided = !!alert && ["closed"].includes(alert.status);
+  const isSarFiled = isDecided && auditEntries.some((e) => {
+    if (e.action !== "decision") return false;
+    try { return JSON.parse(e.detail ?? "{}").outcome === "SAR_FILED"; }
+    catch { return false; }
+  });
 
   const refreshAudit = () => {
     fetch(`/api/alerts/${alertId}/audit`).then((r) => r.json()).then(setAuditEntries);
@@ -158,8 +163,8 @@ export default function Page() {
     setDecided(closes);
     refreshAudit();
     setActivityOpen(true);
+    fetch(`/api/alerts/${alertId}`).then((r) => r.json()).then(setAlert);
     if (!closes) {
-      fetch(`/api/alerts/${alertId}`).then((r) => r.json()).then(setAlert);
       setNote("");
     }
   };
@@ -346,10 +351,9 @@ export default function Page() {
               </div>
             </div>
           ) : null}
-          {/* SAR Narrative — shown after case is closed */}
-          {alert && (
+          {isSarFiled && (
             <div className="mt-8">
-              <SARNarrative alertId={alertId} isDecided={isDecided} />
+              <SARNarrative alertId={alertId} />
             </div>
           )}
         </div>

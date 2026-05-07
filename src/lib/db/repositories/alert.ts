@@ -10,6 +10,7 @@ function toAlert(row: AlertDb): Alert {
     description: row.description,
     status: row.status as AlertStatus,
     createdAt: row.created_at,
+    closedAt: row.closed_at ?? undefined,
   };
 }
 
@@ -37,6 +38,20 @@ export function getAlertsByStatus(status: AlertStatus, limit = 25, offset = 0): 
   return rows.map(toAlert);
 }
 
+export function getClosedAlerts(limit = 25, offset = 0): Alert[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT a.*, cm.outcome
+       FROM alerts a
+       LEFT JOIN case_memory cm ON cm.alert_id = a.id
+       WHERE a.status = 'closed'
+       ORDER BY a.closed_at DESC
+       LIMIT ? OFFSET ?`
+    )
+    .all(limit, offset) as (AlertDb & { outcome: string | null })[];
+  return rows.map((row) => ({ ...toAlert(row), outcome: row.outcome ?? undefined }));
+}
+
 export function getAlertById(id: number): Alert | null {
   const row = getDb().prepare("SELECT * FROM alerts WHERE id = ?").get(id) as AlertDb | null;
   return row ? toAlert(row) : null;
@@ -50,13 +65,32 @@ export function updateAlertStatus(alertId: number, status: Extract<AlertStatus, 
   })();
 }
 
-export function closeAlert(alertId: number, outcome: string, note: string, typology: string, description: string, distinguishingFactor: string): void {
+export function closeAlert(
+  alertId: number,
+  outcome: string,
+  note: string,
+  typology: string,
+  description: string,
+  distinguishingFactor: string,
+  snapshot: { toolResults: unknown; message: string } | null,
+): void {
   const db = getDb();
   db.transaction(() => {
-    db.prepare("UPDATE alerts SET status = 'closed' WHERE id = ?").run(alertId);
+    db.prepare("UPDATE alerts SET status = 'closed', closed_at = datetime('now') WHERE id = ?").run(alertId);
     db.prepare("INSERT INTO case_memory (alert_id, typology, description, outcome, distinguishing_factor) VALUES (?, ?, ?, ?, ?)").run(alertId, typology, description, outcome, distinguishingFactor);
     db.prepare("INSERT INTO audit_trail (alert_id, actor, action, detail) VALUES (?, 'analyst', 'decision', ?)").run(alertId, JSON.stringify({ outcome, note }));
+    if (snapshot) {
+      db.prepare("INSERT INTO investigation_snapshots (alert_id, tool_results, message) VALUES (?, ?, ?)").run(alertId, JSON.stringify(snapshot.toolResults), snapshot.message);
+    }
   })();
+}
+
+export function getInvestigationSnapshot(alertId: number): { toolResults: string; message: string } | null {
+  const row = getDb()
+    .prepare("SELECT tool_results, message FROM investigation_snapshots WHERE alert_id = ?")
+    .get(alertId) as { tool_results: string; message: string } | null;
+  if (!row) return null;
+  return { toolResults: row.tool_results, message: row.message };
 }
 
 export function countAllAlerts(): number {

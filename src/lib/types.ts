@@ -9,6 +9,8 @@ export interface Alert {
   description: string;
   status: AlertStatus;
   createdAt: string;
+  closedAt?: string;
+  outcome?: string;
 }
 
 export interface Account {
@@ -74,6 +76,11 @@ export interface AnalyticsData {
   overallFalsePositiveRate: number;
   overallAgreementRate: number;
   byTypology: TypologyStats[];
+}
+
+export interface InvestigationSnapshot {
+  toolResults: { tool: string; data: Record<string, unknown> | null }[];
+  message: string;
 }
 
 export type InvestigationEvent =

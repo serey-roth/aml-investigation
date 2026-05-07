@@ -50,4 +50,5 @@ export interface AlertDb {
   description: string;
   status: string;
   created_at: string;
+  closed_at: string | null;
 }

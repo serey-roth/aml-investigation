@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { stripTypologyPrefix } from "@/lib/utils";
 import type { Alert } from "@/lib/types";
 
 export default function Page() {
@@ -36,7 +35,7 @@ export default function Page() {
     <div className="px-8 py-8 max-w-4xl mx-auto">
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-xl font-semibold text-neutral-900">Alert Queue</h1>
+          <h1 className="text-xl font-semibold text-neutral-900">Alerts</h1>
           <button
             onClick={() => router.push("/analytics")}
             className="text-xs text-neutral-400 hover:text-neutral-600"
@@ -66,6 +65,7 @@ export default function Page() {
             <th className="py-2 pr-6 font-normal">Account</th>
             {tab === "closed" && <th className="py-2 pr-6 font-normal">Typology</th>}
             <th className="py-2 pr-6 font-normal">Description</th>
+            {tab === "closed" && <th className="py-2 pr-6 font-normal">Decision</th>}
             {tab === "closed" && <th className="py-2 font-normal">Closed</th>}
           </tr>
         </thead>
@@ -91,14 +91,24 @@ export default function Page() {
                 </td>
               )}
               <td className="py-3 pr-6 text-neutral-500 text-xs max-w-xs truncate">
-                {stripTypologyPrefix(a.description, a.typology).replace(/\s*pattern detected:?\s*/i, " ").trimStart()}
+                {a.description}
               </td>
-              {tab === "closed" && <td className="py-3 text-neutral-400 text-xs">{a.createdAt}</td>}
+              {tab === "closed" && (
+                <td className="py-3 pr-6">
+                  {a.outcome === "SAR_FILED" && (
+                    <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">SAR Filed</span>
+                  )}
+                  {a.outcome === "NO_FILE" && (
+                    <span className="text-xs bg-neutral-100 text-neutral-500 px-2 py-0.5 rounded">No File</span>
+                  )}
+                </td>
+              )}
+              {tab === "closed" && <td className="py-3 text-neutral-400 text-xs">{a.closedAt}</td>}
             </tr>
           ))}
           {alerts.length === 0 && (
             <tr>
-              <td colSpan={tab === "active" ? 2 : 4} className="py-8 text-center text-xs text-neutral-400">
+              <td colSpan={tab === "active" ? 2 : 5} className="py-8 text-center text-xs text-neutral-400">
                 No {tab} alerts.
               </td>
             </tr>

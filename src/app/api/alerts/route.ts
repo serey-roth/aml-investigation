@@ -1,4 +1,4 @@
-import { getActiveAlerts, getAlertsByStatus, countActiveAlerts, countAlertsByStatus } from "@/lib/db/repositories/alert";
+import { getActiveAlerts, getAlertsByStatus, getClosedAlerts, countActiveAlerts, countAlertsByStatus } from "@/lib/db/repositories/alert";
 import { AlertStatus } from "@/lib/types";
 
 export const runtime = "nodejs";
@@ -13,6 +13,8 @@ export async function GET(req: Request) {
   try {
     const alerts = status === "active"
       ? getActiveAlerts(PAGE_SIZE, page * PAGE_SIZE)
+      : status === "closed"
+      ? getClosedAlerts(PAGE_SIZE, page * PAGE_SIZE)
       : getAlertsByStatus(status as AlertStatus, PAGE_SIZE, page * PAGE_SIZE);
 
     const total = status === "active"

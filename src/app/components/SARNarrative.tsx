@@ -1,19 +1,27 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface SARNarrativeProps {
   alertId: number;
+  autoStart?: boolean;
 }
 
 type DraftState = "idle" | "streaming" | "done" | "error";
 
-export function SARNarrative({ alertId }: SARNarrativeProps) {
+export function SARNarrative({ alertId, autoStart }: SARNarrativeProps) {
   const [state, setState] = useState<DraftState>("idle");
   const [narrative, setNarrative] = useState("");
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
   const abortRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    if (autoStart) startDraft();
+    // startDraft is stable (defined in same render scope); alertId won't change
+    // for the lifetime of this component instance — suppress exhaustive-deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoStart]);
 
   async function startDraft() {
     setNarrative("");

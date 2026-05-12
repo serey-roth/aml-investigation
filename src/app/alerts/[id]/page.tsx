@@ -95,17 +95,19 @@ export default function Page() {
   const [running, setRunning] = useState(false);
   const [evidenceTab, setEvidenceTab] = useState<"evidence" | "graph">("evidence");
   const [decided, setDecided] = useState(false);
+  const [decidedOutcome, setDecidedOutcome] = useState<"SAR_FILED" | "NO_FILE" | null>(null);
+  const [showSAR, setShowSAR] = useState(false);
   const [note, setNote] = useState("");
   const [auditEntries, setAuditEntries] = useState<AuditEntry[]>([]);
   const [activityOpen, setActivityOpen] = useState(false);
   const tokenBufferRef = useRef("");
   const runningRef = useRef(false);
   const isDecided = !!alert && ["closed"].includes(alert.status);
-  const isSarFiled = isDecided && auditEntries.some((e) => {
+  const isSarFiled = decidedOutcome === "SAR_FILED" || (isDecided && auditEntries.some((e) => {
     if (e.action !== "decision") return false;
     try { return JSON.parse(e.detail ?? "{}").outcome === "SAR_FILED"; }
     catch { return false; }
-  });
+  }));
 
   const refreshAudit = () => {
     fetch(`/api/alerts/${alertId}/audit`).then((r) => r.json()).then(setAuditEntries);
@@ -170,6 +172,7 @@ export default function Page() {
       body: JSON.stringify({ outcome, note, recommendation: messageStep?.content ?? "", snapshot: snap }),
     });
     setDecided(closes);
+    if (closes) setDecidedOutcome(outcome === "SAR_FILED" ? "SAR_FILED" : "NO_FILE");
     if (closes && snap) setSnapshot(snap);
     refreshAudit();
     setActivityOpen(true);
@@ -318,9 +321,17 @@ export default function Page() {
           </div>
 
           {/* Decision bar */}
-          {decided ? (
-            <div className="mt-8 pt-6 border-t border-neutral-200">
+          {decided || isDecided ? (
+            <div className="mt-8 pt-6 border-t border-neutral-200 space-y-3">
               <p className="text-xs text-neutral-400">Case closed. <button onClick={() => router.push("/")} className="text-neutral-600 hover:text-neutral-800 underline">Back to Alerts</button></p>
+              {isSarFiled && !showSAR && (
+                <button
+                  onClick={() => setShowSAR(true)}
+                  className="w-full rounded border border-neutral-200 py-2.5 text-xs text-neutral-500 hover:border-neutral-400 hover:text-neutral-700 transition-colors"
+                >
+                  Draft SAR Narrative
+                </button>
+              )}
             </div>
           ) : canDecide ? (
             <div className="mt-8 pt-6 border-t border-neutral-200 space-y-3">
@@ -366,9 +377,9 @@ export default function Page() {
               </div>
             </div>
           ) : null}
-          {isSarFiled && (
+          {showSAR && (
             <div className="mt-8">
-              <SARNarrative alertId={alertId} />
+              <SARNarrative alertId={alertId} autoStart />
             </div>
           )}
         </div>

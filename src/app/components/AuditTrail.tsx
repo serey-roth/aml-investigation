@@ -46,8 +46,10 @@ function buildEvents(alert: Alert, entries: AuditEntry[]): TimelineEvent[] {
 
   for (const e of entries.filter((e) => ["recommendation","decision","flag"].includes(e.action))) {
     if (e.action === "recommendation") {
-      const verdict = extractVerdict(e.detail ?? "");
-      const summary = extractReasoningSummary(e.detail ?? "");
+      let recText = e.detail ?? "";
+      try { const p = JSON.parse(recText); if (typeof p === "string") recText = p; } catch { /* already plain text */ }
+      const verdict = extractVerdict(recText);
+      const summary = extractReasoningSummary(recText);
       events.push({
         id: String(e.id),
         label: "AI Investigation Complete",
@@ -159,10 +161,10 @@ export function AuditTrail({
                       </div>
 
                       {/* Content */}
-                      <div className={`pb-4 min-w-0 ${isLast ? "" : ""}`}>
-                        <div className="flex items-center gap-2 mb-0.5">
+                      <div className={`pb-4 min-w-0 flex-1`}>
+                        <div className="flex items-center justify-between mb-0.5">
                           <span className="text-xs font-medium text-neutral-800">{ev.label}</span>
-                          <span className="text-[10px] text-neutral-400 font-mono ml-auto shrink-0">{formatTimeOnly(ev.timestamp)}</span>
+                          <span className="text-[10px] text-neutral-400 font-mono shrink-0">{formatTimeOnly(ev.timestamp)}</span>
                         </div>
                         <p className="text-xs text-neutral-500 leading-relaxed line-clamp-3">{ev.description}</p>
                       </div>

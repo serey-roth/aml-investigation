@@ -15,6 +15,7 @@ We use the [IBM AML HI-Small dataset](https://www.kaggle.com/datasets/ealtman201
 ## Prerequisites
 
 - Node.js
+- MySQL 8.0+ running locally (default: `localhost:3307`, database `aml_cases`)
 - [Ollama](https://ollama.com) with `qwen2.5:3b` pulled (`ollama pull qwen2.5:3b`)
 - IBM AML HI-Small CSV files downloaded and placed in `src/data/`
 
@@ -22,9 +23,11 @@ We use the [IBM AML HI-Small dataset](https://www.kaggle.com/datasets/ealtman201
 
 ```bash
 npm install
-npm run seed   # parses IBM CSVs and builds src/data/aml.db
+npm run seed   # parses IBM CSVs and populates MySQL
 npm run dev    # http://localhost:3000
 ```
+
+Configure the database connection via environment variables: `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD`.
 
 ## How it works
 
@@ -45,7 +48,7 @@ npm run dev    # http://localhost:3000
 | Framework | Next.js (TypeScript) |
 | Agent | LangChain + LangGraph |
 | LLM | Ollama — `qwen2.5:3b` (local) |
-| Database | SQLite via `better-sqlite3` |
+| Database | MySQL 8.0 via `mysql2` |
 | Dataset | IBM AML HI-Small (~111k transactions, 8 typologies) |
 
 ## Project structure
@@ -63,7 +66,7 @@ src/
     ├── agent/
     │   ├── investigator.ts           # Agent class and streaming interface
     │   ├── tools.ts                  # Four LangChain tools
-    │   ├── loader.ts                 # SqliteLoader — DB queries behind each tool
+    │   ├── loader.ts                 # MysqlLoader — DB queries behind each tool
     │   ├── prompts.ts                # System prompt
     │   └── models.ts                 # Ollama model config
     └── db/

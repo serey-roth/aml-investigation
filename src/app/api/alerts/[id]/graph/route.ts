@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { getAlertById } from "@/lib/db/repositories/alert";
-import { getDb } from "@/lib/db/client";
 import { getGraphEdges } from "@/lib/db/repositories/transaction";
 
 export const runtime = "nodejs";
@@ -26,9 +25,9 @@ export interface GraphData {
 const HOP1_CAP = 20;
 const HOP2_CAP = 5;
 
-function buildGraph(focusAccountId: string): GraphData {
+async function buildGraph(focusAccountId: string): Promise<GraphData> {
   // Hop 1: all direct neighbours, ranked by tx count, capped at HOP1_CAP
-  const hop1Edges = getGraphEdges([focusAccountId]);
+  const hop1Edges = await getGraphEdges([focusAccountId]);
   const hop1CountMap = new Map<string, number>();
   for (const e of hop1Edges) {
     const other = e.from_account === focusAccountId ? e.to_account : e.from_account;
@@ -46,7 +45,7 @@ function buildGraph(focusAccountId: string): GraphData {
   const hop1Array = [...hop1Neighbours];
 
   if (hop1Array.length > 0) {
-    const hop2Edges = getGraphEdges(hop1Array);
+    const hop2Edges = await getGraphEdges(hop1Array);
     const neighbourCounts = new Map<string, Map<string, number>>();
     for (const e of hop2Edges) {
       for (const src of [e.from_account, e.to_account]) {
@@ -67,7 +66,7 @@ function buildGraph(focusAccountId: string): GraphData {
   }
 
   const allIds = new Set([focusAccountId, ...hop1Neighbours, ...hop2Neighbours]);
-  const allEdgesRaw = getGraphEdges([...allIds]);
+  const allEdgesRaw = await getGraphEdges([...allIds]);
 
   const edgeMap = new Map<string, GraphEdge>();
   for (const e of allEdgesRaw) {
@@ -101,8 +100,8 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const alert = getAlertById(parseInt(id));
+  const alert = await getAlertById(parseInt(id));
   if (!alert) return Response.json({ error: "Not found" }, { status: 404 });
-  const graph = buildGraph(alert.accountId);
+  const graph = await buildGraph(alert.accountId);
   return Response.json(graph);
 }

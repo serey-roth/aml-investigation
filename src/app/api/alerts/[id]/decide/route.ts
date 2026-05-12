@@ -14,14 +14,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const alertId = parseInt(id);
   const { outcome, note, recommendation, snapshot } = await req.json();
 
-  const alert = getAlertById(alertId);
+  const alert = await getAlertById(alertId);
   if (!alert) return Response.json({ error: "Not found" }, { status: 404 });
   if (alert.status === "closed") return Response.json({ error: "Alert already closed" }, { status: 409 });
 
   if (CLOSING_OUTCOMES.includes(outcome)) {
-    closeAlert(alertId, outcome, note ?? "", alert.typology, alert.description, recommendation ?? "", snapshot ?? null);
+    await closeAlert(alertId, outcome, note ?? "", alert.typology, alert.description, recommendation ?? "", snapshot ?? null);
   } else if (FLAG_OUTCOMES[outcome]) {
-    updateAlertStatus(alertId, FLAG_OUTCOMES[outcome], note ?? "");
+    await updateAlertStatus(alertId, FLAG_OUTCOMES[outcome], note ?? "");
   } else {
     return Response.json({ error: "Unknown outcome" }, { status: 400 });
   }

@@ -1,16 +1,13 @@
-import Database from "better-sqlite3";
-import * as sqliteVec from "sqlite-vec";
-import path from "path";
+import { createPool } from "mysql2/promise";
 
-const DB_PATH = path.join(process.cwd(), "src/data/aml.db");
+// Connection pool — reused across requests. Pool size defaults to 10.
+const pool = createPool({
+  host:        process.env.MYSQL_HOST     ?? "localhost",
+  port:        Number(process.env.MYSQL_PORT ?? 3307),
+  database:    process.env.MYSQL_DATABASE ?? "aml_cases",
+  user:        process.env.MYSQL_USER     ?? "root",
+  password:    process.env.MYSQL_PASSWORD ?? "password",
+  dateStrings: true, // return DATETIME as "YYYY-MM-DD HH:MM:SS" strings, not Date objects
+});
 
-let _db: Database.Database | null = null;
-
-export function getDb(): Database.Database {
-  if (!_db) {
-    _db = new Database(DB_PATH);
-    _db.pragma('foreign_keys = ON');
-    sqliteVec.load(_db);
-  }
-  return _db;
-}
+export default pool;

@@ -7,25 +7,23 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "seed": "rm -f src/data/aml.db && npx tsx src/lib/db/seed.ts"
+    "seed": "npx tsx src/lib/db/seed.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.1.38",
     "@langchain/langgraph": "^1.2.6",
     "@langchain/ollama": "^1.2.6",
     "@tailwindcss/postcss": "^4.2.2",
-    "better-sqlite3": "^12.9.0",
     "langchain": "^1.2.39",
+    "mysql2": "^3.22.3",
     "next": "^16.2.1",
     "postcss": "^8.5.9",
     "react": "^19.2.5",
     "react-dom": "^19.2.5",
-    "sqlite-vec": "^0.1.9",
     "tailwindcss": "^4.2.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",

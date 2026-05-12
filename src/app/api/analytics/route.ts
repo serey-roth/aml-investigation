@@ -20,14 +20,23 @@ function parseAgentRecommendation(
 }
 
 export async function GET() {
-  const totalAlerts = countAllAlerts();
-  const totalClosed = countClosedAlerts();
-  const totalOpen = totalAlerts - totalClosed;
+  const [
+    totalAlerts,
+    totalClosed,
+    closedCases,
+    typologyCountsByOutcome,
+    typologyTotals,
+    auditLatestRows,
+  ] = await Promise.all([
+    countAllAlerts(),
+    countClosedAlerts(),
+    getClosedCasesWithOutcome(),
+    getTypologyCountsByOutcome(),
+    getTypologyTotals(),
+    getLatestRecommendationsAndDecisions(),
+  ]);
 
-  const closedCases = getClosedCasesWithOutcome();
-  const typologyCountsByOutcome = getTypologyCountsByOutcome();
-  const typologyTotals = getTypologyTotals();
-  const auditLatestRows = getLatestRecommendationsAndDecisions();
+  const totalOpen = totalAlerts - totalClosed;
 
   // Map latest audit entries per alert
   interface AuditPair {
@@ -116,7 +125,7 @@ export async function GET() {
     const closedKnown = stat.sarFiled + stat.noFile;
     // False positive rate excludes unknown-outcome cases from denominator
     stat.falsePositiveRate =
-    closedKnown > 0 ? stat.noFile / closedKnown : 0;  
+    closedKnown > 0 ? stat.noFile / closedKnown : 0;
     stat.agreementRate =
       stat.agentTotalCount > 0 ? stat.agentMatchCount / stat.agentTotalCount : 0;
     const msList = decisionMsList.get(stat.typology) ?? [];

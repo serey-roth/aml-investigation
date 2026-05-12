@@ -1,3 +1,6 @@
+// Raw row shapes returned by mysql2 (snake_case column names).
+// Repository functions map these to camelCase domain types before returning them.
+
 export interface AccountDb {
   account_id: string;
   bank_id: string;
@@ -19,6 +22,7 @@ export interface TransactionDb {
   is_laundering: number;
 }
 
+// Projection for the transaction volume chart — avoids fetching full rows.
 export interface TransactionAmountDb {
   timestamp: string;
   amount_paid: number;
@@ -38,10 +42,9 @@ export interface AuditEntryDb {
   alert_id: number;
   actor: string;
   action: string;
-  detail: string | null;
+  detail: string | Record<string, unknown> | null; // mysql2 auto-parses JSON columns into objects
   created_at: string;
 }
-
 
 export interface AlertDb {
   id: number;
@@ -50,5 +53,5 @@ export interface AlertDb {
   description: string;
   status: string;
   created_at: string;
-  closed_at: string | null;
+  closed_at: string | null; // NULL until a final decision is recorded
 }

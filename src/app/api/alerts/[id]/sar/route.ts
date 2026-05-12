@@ -12,10 +12,11 @@ export async function GET(
   const { id } = await params;
   const alertId = parseInt(id);
 
-  const alert = getAlertById(alertId);
+  const [alert, auditEntries] = await Promise.all([
+    getAlertById(alertId),
+    getAuditTrail(alertId),
+  ]);
   if (!alert) return Response.json({ error: "Not found" }, { status: 404 });
-
-  const auditEntries = getAuditTrail(alertId);
 
   const prompt = buildSARPrompt(alert, auditEntries);
 
@@ -23,7 +24,7 @@ export async function GET(
   // This keeps the route non-blocking during the demo — the client receives
   // a clean SSE error event instead of a hanging connection.
   const ollamaAbort = new AbortController();
-  const ollamaTimeout = setTimeout(() => ollamaAbort.abort(), 10_000);
+  const ollamaTimeout = setTimeout(() => ollamaAbort.abort(), 30_000);
 
   let ollamaRes: Response;
   try {

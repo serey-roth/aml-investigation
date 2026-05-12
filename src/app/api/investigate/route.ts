@@ -1,18 +1,18 @@
 import { NextRequest } from "next/server";
 import { Investigator } from "@/lib/agent/investigator";
-import { SqliteLoader } from "@/lib/agent/loader";
+import { MysqlLoader } from "@/lib/agent/loader";
 import { getAlertById } from "@/lib/db/repositories/alert";
 import { insertAuditEntry } from "@/lib/db/repositories/audit";
 import { typologyInlineNote } from "@/lib/typologies";
 
 export const runtime = "nodejs";
 
-const investigator = new Investigator(new SqliteLoader());
+const investigator = new Investigator(new MysqlLoader());
 
 export async function POST(req: NextRequest) {
   const { alertId } = await req.json();
 
-  const alert = getAlertById(parseInt(alertId));
+  const alert = await getAlertById(parseInt(alertId));
   if (!alert) return Response.json({ error: "Alert not found" }, { status: 404 });
 
   const typologyNote = typologyInlineNote(alert.typology);
@@ -29,11 +29,11 @@ export async function POST(req: NextRequest) {
       try {
         for await (const event of investigator.stream(alertText)) {
           if (event.type === "tool_result") {
-            insertAuditEntry(alert.id, "agent", "tool_call", JSON.stringify({ tool: event.name, output: event.output }));
+            await insertAuditEntry(alert.id, "agent", "tool_call", JSON.stringify({ tool: event.name, output: event.output }));
           } else if (event.type === "token") {
             messageBuffer += event.content;
           } else if (event.type === "done" && messageBuffer) {
-            insertAuditEntry(alert.id, "agent", "recommendation", messageBuffer);
+            await insertAuditEntry(alert.id, "agent", "recommendation", JSON.stringify(messageBuffer));
           }
           emit(event);
         }

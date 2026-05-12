@@ -1,15 +1,14 @@
-import Database from "better-sqlite3";
 import * as fs from "fs";
 import * as readline from "readline";
 import * as path from "path";
+import { ResultSetHeader } from "mysql2/promise";
+import pool from "./client";
 import { createSchema } from "./schema";
 import { getTypologyDefinition } from "../typologies";
 import { OllamaEmbeddings } from "@langchain/ollama";
-import * as sqliteVec from "sqlite-vec";
-import { AccountDb, TransactionDb } from "./types";
+import { AccountDb, CaseDb, TransactionDb } from "./types";
 
 const DATA_DIR = path.join(process.cwd(), "src/data");
-const DB_PATH = path.join(DATA_DIR, "aml.db");
 const CLEAN_ACCOUNT_SAMPLE = 200;
 
 interface LaunderingAttempt {
@@ -90,7 +89,7 @@ async function parseAccountCsv(filePath: string, isLaunderingAccount: (accountId
   });
 
   const allAccounts = [...launderingAccounts.values(), ...cleanAccounts];
-  
+
   return {
     cleanAccounts,
     launderingAccounts,
@@ -141,77 +140,134 @@ function splitAttempts(attempts: LaunderingAttempt[]): { caseMemory: LaunderingA
   return { caseMemory, openAlerts };
 }
 
-function seedAccounts(db: Database.Database, accounts: AccountDb[]): void {
-  const insert = db.prepare(`
-    INSERT INTO accounts (account_id, bank_id, bank_name, entity_name)
-    VALUES (@account_id, @bank_id, @bank_name, @entity_name)
-  `);
-  db.transaction(() => { for (const a of accounts) insert.run(a); })();
+async function clearTables(): Promise<void> {
+  const conn = await pool.getConnection();
+  try {
+    await conn.query("SET FOREIGN_KEY_CHECKS = 0");
+    for (const table of ["case_embeddings", "case_memory", "investigation_snapshots", "audit_trail", "alerts", "transactions", "accounts"]) {
+      await conn.query(`DROP TABLE IF EXISTS ${table}`);
+    }
+    await conn.query("SET FOREIGN_KEY_CHECKS = 1");
+  } finally {
+    conn.release();
+  }
 }
 
-function seedTransactions(db: Database.Database, transactions: TransactionDb[]): void {
-  const insert = db.prepare(`
-    INSERT INTO transactions
-      (timestamp, from_account, from_bank, to_account, to_bank,
-       amount_paid, payment_currency, amount_received, receiving_currency,
-       payment_format, is_laundering)
-    VALUES
-      (@timestamp, @from_account, @from_bank, @to_account, @to_bank,
-       @amount_paid, @payment_currency, @amount_received, @receiving_currency,
-       @payment_format, @is_laundering)
-  `);
-  db.transaction(() => { for (const tx of transactions) insert.run(tx); })();
+async function seedAccounts(accounts: AccountDb[]): Promise<void> {
+  const conn = await pool.getConnection();
+  try {
+    const rows = accounts.map(a => [a.account_id, a.bank_id, a.bank_name, a.entity_name]);
+    await conn.query(
+      "INSERT INTO accounts (account_id, bank_id, bank_name, entity_name) VALUES ?",
+      [rows]
+    );
+  } finally {
+    conn.release();
+  }
 }
 
-function seedCaseMemory(db: Database.Database, attempts: LaunderingAttempt[]): void {
-  const insertAlert = db.prepare(`INSERT INTO alerts (account_id, typology, description, status, created_at, closed_at) VALUES (@account_id, @typology, @description, @status, @created_at, @closed_at)`);
-  const insertCase = db.prepare(`INSERT INTO case_memory (alert_id, typology, description, outcome, distinguishing_factor) VALUES (@alert_id, @typology, @description, @outcome, @distinguishing_factor)`);
-  const insertAudit = db.prepare(`INSERT INTO audit_trail (alert_id, actor, action, detail, created_at) VALUES (?, 'analyst', 'decision', ?, ?)`);
+// mysql2 max_allowed_packet limits batch size — chunk large inserts to stay safe.
+const TX_CHUNK_SIZE = 5_000;
 
-  // Spread seeded closed cases over the past 90 days for realistic sorting.
-  // created_at is 1–7 days before closed_at to simulate investigation time.
+async function seedTransactions(transactions: TransactionDb[]): Promise<void> {
+  const conn = await pool.getConnection();
+  try {
+    for (let i = 0; i < transactions.length; i += TX_CHUNK_SIZE) {
+      const chunk = transactions.slice(i, i + TX_CHUNK_SIZE);
+      const rows = chunk.map(tx => [
+        tx.timestamp, tx.from_account, tx.from_bank, tx.to_account, tx.to_bank,
+        tx.amount_paid, tx.payment_currency, tx.amount_received, tx.receiving_currency,
+        tx.payment_format, tx.is_laundering,
+      ]);
+      await conn.query(
+        `INSERT INTO transactions
+          (timestamp, from_account, from_bank, to_account, to_bank,
+           amount_paid, payment_currency, amount_received, receiving_currency,
+           payment_format, is_laundering)
+         VALUES ?`,
+        [rows]
+      );
+    }
+  } finally {
+    conn.release();
+  }
+}
+
+async function seedCaseMemory(attempts: LaunderingAttempt[]): Promise<void> {
   const now = Date.now();
   const ninetyDays = 90 * 24 * 60 * 60 * 1000;
-
-  const toSqlite = (ms: number) =>
+  const toDatetime = (ms: number) =>
     new Date(ms).toISOString().replace("T", " ").slice(0, 19);
 
-  db.transaction(() => {
-    attempts.forEach((attempt, i) => {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    for (let i = 0; i < attempts.length; i++) {
+      const attempt = attempts[i];
       const primaryAccount = [...attempt.accounts][0];
       const description = `${attempt.accounts.size} accounts involved, ${attempt.transactionCount} transactions flagged`;
       const typology = getTypologyDefinition(attempt.typology);
       const closedAt = now - (ninetyDays * (1 - i / attempts.length));
       const investigationDays = (1 + (i % 7)) * 24 * 60 * 60 * 1000;
       const createdAt = closedAt - investigationDays;
-      const alertResult = insertAlert.run({ account_id: primaryAccount, typology: attempt.typology, description, status: "closed", created_at: toSqlite(createdAt), closed_at: toSqlite(closedAt) });
-      const alertId = alertResult.lastInsertRowid;
-      insertCase.run({ alert_id: alertId, typology: attempt.typology, description, outcome: "SAR_FILED", distinguishing_factor: typology?.amlSignificance ?? "Suspicious transaction pattern detected" });
-      insertAudit.run(alertId, JSON.stringify({ outcome: "SAR_FILED", note: "Seeded case" }), toSqlite(closedAt));
-    });
-  })();
+
+      const [alertResult] = await conn.query<ResultSetHeader>(
+        "INSERT INTO alerts (account_id, typology, description, status, created_at, closed_at) VALUES (?, ?, ?, 'closed', ?, ?)",
+        [primaryAccount, attempt.typology, description, toDatetime(createdAt), toDatetime(closedAt)]
+      );
+      const alertId = alertResult.insertId;
+
+      await conn.query(
+        "INSERT INTO case_memory (alert_id, typology, description, outcome, distinguishing_factor) VALUES (?, ?, ?, 'SAR_FILED', ?)",
+        [alertId, attempt.typology, description, typology?.amlSignificance ?? "Suspicious transaction pattern detected"]
+      );
+      await conn.query(
+        "INSERT INTO audit_trail (alert_id, actor, action, detail, created_at) VALUES (?, 'analyst', 'decision', ?, ?)",
+        [alertId, JSON.stringify({ outcome: "SAR_FILED", note: "Seeded case" }), toDatetime(closedAt)]
+      );
+    }
+    await conn.commit();
+  } catch (e) {
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
+  }
 }
 
-function seedOpenAlerts(db: Database.Database, attempts: LaunderingAttempt[]): void {
-  const insert = db.prepare(`INSERT INTO alerts (account_id, typology, description, status) VALUES (@account_id, @typology, @description, @status)`);
+async function seedOpenAlerts(attempts: LaunderingAttempt[]): Promise<void> {
   const seenTypologies = new Set<string>();
-  db.transaction(() => {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
     for (const attempt of attempts) {
       if (seenTypologies.has(attempt.typology)) continue;
       seenTypologies.add(attempt.typology);
-      insert.run({ account_id: [...attempt.accounts][0], typology: attempt.typology, description: `${attempt.accounts.size} accounts involved, ${attempt.transactionCount} transactions flagged`, status: "open" });
+      await conn.query(
+        "INSERT INTO alerts (account_id, typology, description, status) VALUES (?, ?, ?, 'open')",
+        [[...attempt.accounts][0], attempt.typology, `${attempt.accounts.size} accounts involved, ${attempt.transactionCount} transactions flagged`]
+      );
     }
-  })();
+    await conn.commit();
+  } catch (e) {
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
+  }
 }
 
-async function seedEmbeddings(db: Database.Database): Promise<number> {
-  sqliteVec.load(db);
+async function seedEmbeddings(): Promise<number> {
   const embeddings = new OllamaEmbeddings({ model: "nomic-embed-text" });
-  const cases = db.prepare("SELECT * FROM case_memory").all() as any[];
-  const insert = db.prepare("INSERT INTO case_embeddings (case_id, embedding) VALUES (?, ?)");
+  const [cases] = await pool.query(
+    "SELECT id, typology, distinguishing_factor FROM case_memory"
+  ) as unknown as [CaseDb[], unknown];
   for (const c of cases) {
     const vector = await embeddings.embedQuery(`Typology: ${c.typology}. Factors: ${c.distinguishing_factor}`);
-    insert.run(BigInt(c.id), JSON.stringify(vector));
+    await pool.query(
+      "INSERT INTO case_embeddings (case_id, embedding) VALUES (?, STRING_TO_VECTOR(?))",
+      [c.id, JSON.stringify(vector)]
+    );
   }
   return cases.length;
 }
@@ -221,7 +277,7 @@ async function seed() {
   const attempts = await parsePatternsTxt("HI-Small_Patterns.txt");
   console.log(`Found ${attempts.length} laundering attempts`);
 
-  console.log("Collectiong account IDs involved in laundering...")
+  console.log("Collecting account IDs involved in laundering...")
   const accountsInLaundering = new Set<string>();
   for (const attempt of attempts) {
     for (const id of attempt.accounts) accountsInLaundering.add(id);
@@ -237,20 +293,21 @@ async function seed() {
   const transactions = await parseTransactionCsv("HI-Small_Trans.csv", allAccountIds);
   console.log(`Total transactions: ${transactions.length}`);
 
-  console.log("Writing to DB...");
-  if (fs.existsSync(DB_PATH)) fs.unlinkSync(DB_PATH);
-  const db = new Database(DB_PATH);
-  createSchema(db);
+  console.log("Dropping existing tables...");
+  await clearTables();
+
+  console.log("Creating schema...");
+  await createSchema();
 
   const { caseMemory, openAlerts } = splitAttempts(attempts);
 
-  seedAccounts(db, allAccounts);
-  seedTransactions(db, transactions);
-  seedCaseMemory(db, caseMemory);
-  seedOpenAlerts(db, openAlerts);
-  await seedEmbeddings(db);
+  await seedAccounts(allAccounts);
+  await seedTransactions(transactions);
+  await seedCaseMemory(caseMemory);
+  await seedOpenAlerts(openAlerts);
+  await seedEmbeddings();
 
-  db.close();
+  await pool.end();
   console.log(`\nDone.`);
 }
 

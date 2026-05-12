@@ -40,9 +40,9 @@ export interface CaseDataLoader {
   getSimilarCases(caseEmbeddings: number[]): Promise<Case[]>;
 }
 
-export class SqliteLoader implements CaseDataLoader {
+export class MysqlLoader implements CaseDataLoader {
   async fetchTransactionHistory(accountId: string): Promise<TransactionHistoryResult> {
-    const accountTransactions = getTransactions(accountId);
+    const accountTransactions = await getTransactions(accountId);
     return {
       accountId,
       transactions: accountTransactions.map((r) => ({
@@ -54,7 +54,7 @@ export class SqliteLoader implements CaseDataLoader {
   }
 
   async fetchVelocity(accountId: string, windowHours: number): Promise<VelocityResult> {
-    const transactionAmounts = getTransactionAmounts(accountId);
+    const transactionAmounts = await getTransactionAmounts(accountId);
 
     if (transactionAmounts.length === 0) {
       return { accountId, windowHours, transactionCount: 0, totalAmount: 0, averageAmount: 0, accountHistoricalAverage: 0 };
@@ -79,7 +79,7 @@ export class SqliteLoader implements CaseDataLoader {
   }
 
   async fetchCounterpartyHistory(accountId: string, counterpartyId: string): Promise<CounterpartyHistoryResult> {
-    const counterpartyTransactions = getCounterpartyTransactions(accountId, counterpartyId);
+    const counterpartyTransactions = await getCounterpartyTransactions(accountId, counterpartyId);
     return {
       accountId,
       counterpartyId,

@@ -1,7 +1,6 @@
-import { getDb } from "../client";
+import pool from "../client";
 import { TransactionDb, TransactionAmountDb } from "../types";
 import { Transaction } from "@/lib/types";
-
 
 function toTransaction(tx: TransactionDb): Transaction {
   return {
@@ -19,55 +18,59 @@ function toTransaction(tx: TransactionDb): Transaction {
   };
 }
 
-export function getTransactions(accountId: string): Transaction[] {
-  const rows = getDb().prepare<[string, string]>(`
-    SELECT  *
-    FROM transactions
-    WHERE from_account = ? OR to_account = ?
-    ORDER BY timestamp DESC
-    LIMIT 50
-  `).all(accountId, accountId) as TransactionDb[];
+// OR across two indexed columns triggers two index scans whose rowid sets are
+// merged — avoids a full table scan even though it's not a simple equality filter.
+export async function getTransactions(accountId: string): Promise<Transaction[]> {
+  const [rows] = await pool.query(
+    `SELECT * FROM transactions
+     WHERE from_account = ? OR to_account = ?
+     ORDER BY timestamp DESC
+     LIMIT 50`,
+    [accountId, accountId]
+  ) as unknown as [TransactionDb[], unknown];
   return rows.map(toTransaction);
 }
 
-export function getTransactionAmounts(accountId: string): { timestamp: string; amountPaid: number }[] {
-  const rows = getDb().prepare<[string, string]>(`
-    SELECT timestamp, amount_paid
-    FROM transactions
-    WHERE from_account = ? OR to_account = ?
-    ORDER BY timestamp DESC
-  `).all(accountId, accountId) as TransactionAmountDb[];
+export async function getTransactionAmounts(accountId: string): Promise<{ timestamp: string; amountPaid: number }[]> {
+  const [rows] = await pool.query(
+    `SELECT timestamp, amount_paid
+     FROM transactions
+     WHERE from_account = ? OR to_account = ?
+     ORDER BY timestamp DESC`,
+    [accountId, accountId]
+  ) as unknown as [TransactionAmountDb[], unknown];
   return rows.map((r) => ({ timestamp: r.timestamp, amountPaid: r.amount_paid }));
 }
 
-export function getCounterpartyTransactions(accountId: string, counterpartyId: string): { timestamp: string }[] {
-  return getDb().prepare<[string, string, string, string]>(`
-    SELECT timestamp FROM transactions
-    WHERE (from_account = ? AND to_account = ?)
-       OR (from_account = ? AND to_account = ?)
-    ORDER BY timestamp ASC
-  `).all(accountId, counterpartyId, counterpartyId, accountId) as { timestamp: string }[];
+// Both transfer directions matched explicitly so the planner can use
+// idx_tx_from and idx_tx_to. Used to detect round-tripping between two accounts.
+export async function getCounterpartyTransactions(accountId: string, counterpartyId: string): Promise<{ timestamp: string }[]> {
+  const [rows] = await pool.query(
+    `SELECT timestamp FROM transactions
+     WHERE (from_account = ? AND to_account = ?)
+        OR (from_account = ? AND to_account = ?)
+     ORDER BY timestamp ASC`,
+    [accountId, counterpartyId, counterpartyId, accountId]
+  ) as unknown as [{ timestamp: string }[], unknown];
+  return rows;
 }
 
-export function getGraphEdges(
+export async function getGraphEdges(
   accountIds: string[]
-): { from_account: string; to_account: string; total: number; cnt: number }[] {
+): Promise<{ from_account: string; to_account: string; total: number; cnt: number }[]> {
   if (accountIds.length === 0) return [];
+  // Placeholders built dynamically; list passed twice to capture both transfer
+  // directions. GROUP BY collapses payments into weighted edges for the network graph.
   const placeholders = accountIds.map(() => "?").join(",");
-  return getDb()
-    .prepare(
-      `SELECT from_account, to_account,
-              SUM(amount_paid) as total,
-              COUNT(*) as cnt
-       FROM transactions
-       WHERE (from_account IN (${placeholders}) OR to_account IN (${placeholders}))
-         AND from_account != to_account
-       GROUP BY from_account, to_account`
-    )
-    .all(...accountIds, ...accountIds) as {
-      from_account: string;
-      to_account: string;
-      total: number;
-      cnt: number;
-    }[];
+  const [rows] = await pool.query(
+    `SELECT from_account, to_account,
+            SUM(amount_paid) as total,
+            COUNT(*) as cnt
+     FROM transactions
+     WHERE (from_account IN (${placeholders}) OR to_account IN (${placeholders}))
+       AND from_account != to_account
+     GROUP BY from_account, to_account`,
+    [...accountIds, ...accountIds]
+  ) as unknown as [{ from_account: string; to_account: string; total: number; cnt: number }[], unknown];
+  return rows;
 }

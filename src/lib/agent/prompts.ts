@@ -1,17 +1,6 @@
 import { typologyPromptBlock } from "../typologies";
 import { Alert,AuditEntry } from "@/lib/types";
 
-// interface Alert {
-//   id: number;
-//   accountId: string;
-//   typology: string;
-//   description: string;
-//   status: string;
-//   createdAt: string;
-// }
-
-
-
 function buildAuditBlock(auditEntries: AuditEntry[]): string {
   return auditEntries
     .map((e) => {
